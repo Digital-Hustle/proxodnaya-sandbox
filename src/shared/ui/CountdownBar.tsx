@@ -8,7 +8,7 @@ import { ease, spring } from "@/shared/config/motion";
  * полоса сдвигается translateX внутри дорожки — без scaleX, который в iOS Safari оставляет следы у скруглённого края.
  * Дорожка — свой слой (isolate + transform-gpu), чтобы WebKit обрезал полосу по радиусу без артефактов.
  */
-export const CountdownBar = ({ endsAt, total, className }: { endsAt: number; total: number; className?: string }) => {
+export const CountdownBar = ({ endsAt, total, className, fillClassName }: { endsAt: number; total: number; className?: string; fillClassName?: string }) => {
   const [scope, run] = useAnimate<HTMLDivElement>();
   useEffect(() => {
     if (!scope.current) return;
@@ -21,7 +21,7 @@ export const CountdownBar = ({ endsAt, total, className }: { endsAt: number; tot
   }, [endsAt, total, run, scope]);
   return (
     <div className={cn("relative isolate h-1.5 min-w-0 transform-gpu overflow-hidden rounded-full bg-surface", className)} role="timer" aria-label="Время до смены кода">
-      <div ref={scope} className="absolute inset-0 rounded-full bg-brand-gradient will-change-transform" />
+      <div ref={scope} className={cn("absolute inset-0 rounded-full will-change-transform", fillClassName ?? "bg-brand-gradient")} />
     </div>
   );
 };

@@ -1,4 +1,6 @@
-// Контракты песочницы. Повторяют docs/API.md основного репо в упрощённом виде.
+// Контракты песочницы. Повторяют docs/API.md основного репо в упрощённом виде; что ждём от бэкенда — docs/BACKEND-CONTRACT.md.
+import type { TerminalCodeHash, TerminalCodeKind } from "../lib/terminalCode";
+export type { TerminalCodeHash, TerminalCodeKind };
 export type Decision = "ALLOW" | "DENY" | "MANUAL" | "ERROR";
 export type Direction = "IN" | "OUT";
 /** Режим КПП: AUTO — направление выводится из состояния присутствия (ADR-037), IN/OUT — турникет одного направления. */
@@ -7,7 +9,7 @@ export type ReasonCode =
   | "OK" | "QR_MISSING" | "QR_INVALID" | "QR_EXPIRED" | "QR_REUSED" | "DEVICE_UNKNOWN" | "DEVICE_REVOKED" | "DEVICE_MISMATCH"
   | "WORKER_BLOCKED" | "FACE_NOT_FOUND" | "FACE_LOW_QUALITY" | "FACE_MISMATCH" | "LIVENESS_FAILED" | "CHALLENGE_EXPIRED"
   | "NO_SHIFT" | "OUTSIDE_SHIFT_WINDOW" | "PERMIT_EXPIRED" | "NO_ZONE_PERMIT" | "ALREADY_INSIDE" | "NOT_INSIDE"
-  | "TEMP_LOCKED" | "MANUAL_GUARD" | "SYSTEM_ERROR" | "REPEAT_SCAN" | "OFFLINE_EXPIRED";
+  | "TEMP_LOCKED" | "MANUAL_GUARD" | "SYSTEM_ERROR" | "REPEAT_SCAN" | "OFFLINE_EXPIRED" | "FACE_NOT_ENROLLED";
 
 export type WorkerStatus = "active" | "blocked";
 
@@ -22,7 +24,15 @@ export type Worker = {
   permitUntil: string; // инструктаж/медосмотр, YYYY-MM-DD
   inviteCode?: string;
   createdAt: number;
+  /** ADR-046: эталон лица. Нет поля — эталон есть (записи до ADR-046 и демо-база). */
+  face?: FaceRef;
 };
+
+/**
+ * ADR-046: эталон лица для сверки на проходной. HR — снят при оформлении, PHONE — селфи с проверкой живости
+ * на телефоне сотрудника (ждёт подтверждения человеком), KIOSK — снят на терминале при охраннике.
+ */
+export type FaceRef = { status: "NONE" | "PENDING" | "ACTIVE" | "REJECTED"; source?: "HR" | "PHONE" | "KIOSK"; at?: number; by?: string; pendingPhoto?: string; comment?: string };
 
 export type Device = { id: string; workerId: string; publicKey: string; createdAt: number; revokedAt?: number; label: string };
 export type Zone = { id: string; name: string; capacity: number; /** ADR-044: объект, к которому относится зона. */ siteId?: string };
@@ -117,6 +127,8 @@ export type OfflineSnapshot = {
     qrToleranceSec: number; shiftGraceMin: number; requireShift: boolean; repeatScanCooldownSec: number;
     maxHours: number; afterExpiry: "GUARD" | "CLOSED"; checkShift: boolean; unknownDevice: "DENY" | "BIND";
   };
+  /** ADR-046: хэши кодов терминала — чтобы код охранника проверялся и без связи. Нет поля — заводские коды. */
+  codes?: Partial<Record<TerminalCodeKind, TerminalCodeHash>>;
 };
 
 /** ADR-042: решение, принятое терминалом без связи. Хранится на терминале до синхронизации. */
@@ -170,7 +182,9 @@ export type Role = "ADMIN" | "SECURITY_OFFICER" | "MANAGER" | "INSTALLER" | "GUA
 /** Пользователь панели (ADR-041). INVITED — приглашён, ещё не входил; DISABLED — доступ отозван. */
 export type AdminUser = { id: string; name: string; email: string; role: Role; status: "ACTIVE" | "INVITED" | "DISABLED"; createdAt: number; lastSeen?: number };
 /** Запись журнала доступа: кто, кому, что и когда. Только дописывается. */
-export type AccessEvent = { id: string; ts: number; by: string; target: string; action: "INVITE" | "ROLE" | "DISABLE" | "ENABLE" | "JOIN"; from?: Role; to?: Role };
+export type AccessEvent = { id: string; ts: number; by: string; target: string; action: "INVITE" | "ROLE" | "DISABLE" | "ENABLE" | "JOIN" | "CODE" | "LOGIN" | "LOGOUT"; from?: Role; to?: Role;
+  /** ADR-046: какой код терминалов сменили (action = CODE). */
+  code?: TerminalCodeKind };
 
 export type Db = {
   version: number;
@@ -189,6 +203,15 @@ export type Db = {
   /** ADR-041: пользователи панели и журнал выдачи доступа. */
   admins?: AdminUser[];
   accessLog?: AccessEvent[];
+  /** ADR-046: коды на терминалах (общие для всех киосков). Нет поля — действуют заводские. */
+  terminalCodes?: Partial<Record<TerminalCodeKind, TerminalCodeHash>>;
+  /** ADR-046: одноразовые коды входа в кабинет (только хэш) и выданные сессии. */
+  loginCodes?: LoginCode[];
+  adminSessions?: AdminSession[];
 };
+
+/** ADR-046: код входа по почте. Один активный на адрес, 5 попыток, 10 минут. */
+export type LoginCode = { email: string; salt: string; hash: string; iter: number; expiresAt: number; sentAt: number; tries: number };
+export type AdminSession = { token: string; userId: string; createdAt: number; expiresAt: number; revokedAt?: number };
 
 export type Interval = { workerId: string; zoneId: string; start: number; end?: number };

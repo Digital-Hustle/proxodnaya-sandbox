@@ -1,33 +1,25 @@
 import { useState } from "react";
-import { motion } from "motion/react";
 import { Check } from "lucide-react";
 import { api, useDb } from "@/shared/api";
-import { Avatar, Button, Dialog, Field, TimePicker, DateRangePicker, toast, type DateRange } from "@/shared/ui";
+import { Avatar, Button, Dialog, Field, DateRangePicker, toast, type DateRange } from "@/shared/ui";
+import { WeekPlanEditor, weekPlan, planDays, planValid, type WeekPlan } from "@/features/plan-week";
 import { cn, todayKey, plural } from "@/shared/lib";
-import { press } from "@/shared/config/motion";
 
-const WD = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
-const TEMPLATES = [
-  { label: "Пятидневка 08:00–17:00", weekdays: [0, 1, 2, 3, 4], start: "08:00", end: "17:00" },
-  { label: "Шестидневка 08:00–18:00", weekdays: [0, 1, 2, 3, 4, 5], start: "08:00", end: "18:00" },
-  { label: "Вечерняя 14:00–23:00", weekdays: [0, 1, 2, 3, 4], start: "14:00", end: "23:00" },
-];
 const addDays = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); return todayKey(d); };
 
 /** Назначение графика: несколько сотрудников × дни недели × период. Шаблоны заполняют дни и время. */
 export const ScheduleDialog = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
   const db = useDb();
   const [who, setWho] = useState<string[]>([]);
-  const [wd, setWd] = useState<number[]>([0, 1, 2, 3, 4]);
+  const [plan, setPlan] = useState<WeekPlan>(() => weekPlan([0, 1, 2, 3, 4], "08:00", "17:00"));
   const [range, setRange] = useState<DateRange>({ from: todayKey(), to: addDays(13) });
-  const [time, setTime] = useState({ start: "08:00", end: "17:00" });
   const [busy, setBusy] = useState(false);
   const toggle = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
   const contractors = [...new Set(db.workers.map((w) => w.contractor))];
-  const ok = who.length > 0 && wd.length > 0 && time.start < time.end;
+  const ok = who.length > 0 && planValid(plan);
   const save = async () => {
     setBusy(true);
-    const n = await api.assignSchedule({ workerIds: who, weekdays: wd, from: range.from, to: range.to, ...time });
+    const n = await api.assignSchedule({ workerIds: who, weekdays: [], start: "", end: "", days: planDays(plan), from: range.from, to: range.to });
     setBusy(false); onClose();
     toast.success(`Назначено ${n} ${plural(n, "смена", "смены", "смен")}`);
   };
@@ -35,24 +27,7 @@ export const ScheduleDialog = ({ open, onClose }: { open: boolean; onClose: () =
     <Dialog open={open} onClose={onClose} title="Назначить график" description="Смены создаются на каждый выбранный день периода и заменяют уже назначенные"
       footer={<Button disabled={!ok || busy} onClick={save}>Назначить</Button>}>
       <div className="flex flex-col gap-5">
-        <div className="flex flex-wrap gap-2">
-          {TEMPLATES.map((t) => (
-            <motion.button key={t.label} type="button" {...press} onClick={() => { setWd(t.weekdays); setTime({ start: t.start, end: t.end }); }}
-              className="rounded-full border border-border px-3 py-1.5 text-sm transition-colors duration-fast hover:bg-surface">{t.label}</motion.button>
-          ))}
-        </div>
-        <Field label="Дни недели">
-          <div className="grid grid-cols-7 gap-1.5" role="group">
-            {WD.map((d, i) => (
-              <motion.button key={d} type="button" {...press} aria-pressed={wd.includes(i)} onClick={() => setWd(toggle(wd, i))}
-                className={cn("h-control-sm rounded-md border text-sm font-medium transition-colors duration-fast", wd.includes(i) ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-surface", i > 4 && !wd.includes(i) && "text-muted-foreground")}>{d}</motion.button>
-            ))}
-          </div>
-        </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Начало"><TimePicker value={time.start} onChange={(v) => setTime({ ...time, start: v })} /></Field>
-          <Field label="Конец" error={time.start >= time.end ? "Конец смены должен быть позже начала" : null}><TimePicker value={time.end} onChange={(v) => setTime({ ...time, end: v })} /></Field>
-        </div>
+        <WeekPlanEditor value={plan} onChange={setPlan} />
         <Field label="Период"><DateRangePicker value={range} onChange={setRange} presets={[
           { label: "Эта неделя", range: { from: todayKey(), to: addDays(6 - ((new Date().getDay() + 6) % 7)) } },
           { label: "2 недели", range: { from: todayKey(), to: addDays(13) } },

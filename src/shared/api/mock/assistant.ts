@@ -96,7 +96,7 @@ const rules = (q: string): AssistantAnswer => {
       text: `За 7 дней ${total} отказов. Из них ${sys} — системные (качество кадра, лицо не найдено), остальные ${total - sys} — правомерные: правила и попытки пройти не по своему пропуску.`,
       table: { columns: ["Причина", "Кол-во", "Тип"], rows: r.items.map((i) => [i.text, i.count, i.system ? "системный" : "правомерный"]) } };
   }
-  if (/час|отработ|переработ|табел/.test(s)) {
+  if (/(^|[^е])час|отработ|переработ|табел/.test(s)) {
     const r = TOOLS.hours_worked.run({ days: 7 });
     const sum = r.days.reduce((a, b) => a + b.hours, 0);
     return { ...base, tools: ["hours_worked"], sources: ["интервалы присутствия", "смены"],
@@ -126,20 +126,73 @@ const SYSTEM = `Ты — помощник руководителя стройп�
 
 type Msg = { role: string; content: string | null; tool_calls?: { id: string; type: "function"; function: { name: string; arguments: string } }[]; tool_call_id?: string };
 
-const llm = async (cfg: LlmConfig, question: string, history: { role: "user" | "assistant"; text: string }[]): Promise<AssistantAnswer> => {
+/** ADR-046: поток ответа. tool — модель вызывает инструмент (что показать в интерфейсе), delta — кусок текста. */
+export type AssistantEvent = { type: "tool"; name: string } | { type: "delta"; text: string };
+export type AskOptions = { onEvent?: (e: AssistantEvent) => void; signal?: AbortSignal };
+const sleep = (ms: number, signal?: AbortSignal) => new Promise<void>((res, rej) => {
+  const t = setTimeout(res, ms);
+  signal?.addEventListener("abort", () => { clearTimeout(t); rej(new DOMException("Остановлено", "AbortError")); }, { once: true });
+});
+
+/** Режим правил тоже отдаёт поток: сначала инструменты, затем текст кусками по 1–3 слова — как у модели. */
+const streamRules = async (a: AssistantAnswer, o: AskOptions) => {
+  for (const t of a.tools) { o.onEvent?.({ type: "tool", name: t }); await sleep(380 + Math.random() * 260, o.signal); }
+  const parts = a.text.match(/\S+\s*/g) ?? [];
+  for (let i = 0; i < parts.length;) {
+    const n = 1 + Math.floor(Math.random() * 3);
+    o.onEvent?.({ type: "delta", text: parts.slice(i, i + n).join("") });
+    i += n;
+    await sleep(28 + Math.random() * 46, o.signal);
+  }
+};
+
+type Call = { id: string; type: "function"; function: { name: string; arguments: string } };
+/** Читает SSE OpenAI-совместимого API (stream: true): текст отдаёт сразу, вызовы инструментов собирает по кускам. */
+const readStream = async (res: Response, o: AskOptions) => {
+  const reader = res.body!.getReader();
+  const dec = new TextDecoder();
+  let buf = "", content = "";
+  const calls: Call[] = [];
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split("\n");
+    buf = lines.pop() ?? "";
+    for (const line of lines) {
+      const data = line.replace(/^data:\s*/, "").trim();
+      if (!line.startsWith("data:") || !data || data === "[DONE]") continue;
+      let delta: { content?: string; tool_calls?: { index: number; id?: string; function?: { name?: string; arguments?: string } }[] } | undefined;
+      try { delta = JSON.parse(data).choices?.[0]?.delta; } catch { continue; }
+      if (delta?.content) { content += delta.content; o.onEvent?.({ type: "delta", text: delta.content }); }
+      for (const t of delta?.tool_calls ?? []) {
+        const c = (calls[t.index] ??= { id: "", type: "function", function: { name: "", arguments: "" } });
+        if (t.id) c.id = t.id;
+        if (t.function?.name) c.function.name += t.function.name;
+        if (t.function?.arguments) c.function.arguments += t.function.arguments;
+      }
+    }
+  }
+  return { content, calls: calls.filter(Boolean) };
+};
+
+const llm = async (cfg: LlmConfig, question: string, history: { role: "user" | "assistant"; text: string }[], o: AskOptions = {}): Promise<AssistantAnswer> => {
   const messages: Msg[] = [{ role: "system", content: SYSTEM }, ...history.slice(-6).map((h) => ({ role: h.role, content: h.text })), { role: "user", content: question }];
   const tools = Object.entries(TOOLS).map(([n, t]) => ({ type: "function", function: { name: n, description: t.description, parameters: t.parameters } }));
   const used: string[] = [];
   let lastTable: AssistantTable | undefined;
   for (let step = 0; step < 4; step++) {
     const res = await fetch(`${cfg.baseUrl.replace(/\/$/, "")}/chat/completions`, {
-      method: "POST",
+      method: "POST", signal: o.signal,
       headers: { "Content-Type": "application/json", ...(cfg.apiKey ? { Authorization: `Bearer ${cfg.apiKey}` } : {}) },
-      body: JSON.stringify({ model: cfg.model, messages, tools, temperature: 0.2 }),
+      body: JSON.stringify({ model: cfg.model, messages, tools, temperature: 0.2, stream: true }),
     });
     if (!res.ok) throw new Error(`LLM ответила ${res.status}: ${(await res.text()).slice(0, 200)}`);
-    const msg = (await res.json()).choices?.[0]?.message as Msg | undefined;
+    const streamed = res.headers.get("content-type")?.includes("event-stream") && res.body;
+    const msg: Msg = streamed ? await readStream(res, o).then((r) => ({ role: "assistant", content: r.content, tool_calls: r.calls.length ? r.calls : undefined }))
+      : ((await res.json()).choices?.[0]?.message as Msg);
     if (!msg) throw new Error("Пустой ответ модели");
+    if (!streamed && !msg.tool_calls?.length && msg.content) o.onEvent?.({ type: "delta", text: msg.content });
     if (!msg.tool_calls?.length) {
       return { mode: "llm", text: msg.content ?? "", tools: used, sources: used.map((u) => `инструмент ${u}`), table: lastTable };
     }
@@ -147,6 +200,7 @@ const llm = async (cfg: LlmConfig, question: string, history: { role: "user" | "
     for (const c of msg.tool_calls) {
       let args: unknown = {};
       try { args = JSON.parse(c.function.arguments || "{}"); } catch { /* пустые аргументы */ }
+      o.onEvent?.({ type: "tool", name: c.function.name });
       const out = runTool(c.function.name, args);
       used.push(c.function.name);
       lastTable = rules(c.function.name === "late_today" ? "опоздания" : c.function.name === "refusals" ? "отказы" : c.function.name === "hours_worked" ? "часы" : "кто сейчас").table;
@@ -156,11 +210,14 @@ const llm = async (cfg: LlmConfig, question: string, history: { role: "user" | "
   throw new Error("Модель не уложилась в 4 шага");
 };
 
-export const ask = async (question: string, history: { role: "user" | "assistant"; text: string }[] = []): Promise<AssistantAnswer> => {
+/** Вопрос помощнику. С onEvent ответ приходит потоком (инструменты, затем текст); итог — тот же AssistantAnswer. */
+export const ask = async (question: string, history: { role: "user" | "assistant"; text: string }[] = [], o: AskOptions = {}): Promise<AssistantAnswer> => {
   const cfg = loadLlm();
   if (!cfg?.baseUrl) {
-    await new Promise((r) => setTimeout(r, 450));
-    return rules(question);
+    await sleep(320, o.signal);
+    const a = rules(question);
+    if (o.onEvent) await streamRules(a, o);
+    return a;
   }
-  return llm(cfg, question, history);
+  return llm(cfg, question, history, o);
 };

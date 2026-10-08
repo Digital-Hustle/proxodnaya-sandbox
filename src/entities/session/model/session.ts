@@ -29,7 +29,20 @@ const MATRIX: Record<Role, Perm[]> = {
 export const can = (role: Role, perm: Perm) => MATRIX[role].includes(perm);
 export const roleLabel = (role: Role) => ROLES.find((r) => r.id === role)?.label ?? role;
 
-/** Роль текущего пользователя панели. В демо переключается в шапке. */
-export const useSession = create<{ userId: string; role: Role; signIn: (userId: string, role: Role) => void; setRole: (r: Role) => void }>()(
-  persist((set) => ({ userId: "u_admin", role: "ADMIN", signIn: (userId, role) => set({ userId, role }), setRole: (role) => set({ role }) }), { name: "proxodnaya.session" }),
+type SessionState = {
+  userId: string; role: Role;
+  /** ADR-046: токен сессии после входа по коду из письма. Нет токена — кабинет закрыт. */
+  token: string | null; expiresAt: number;
+  signIn: (userId: string, role: Role) => void; setRole: (r: Role) => void;
+  start: (p: { userId: string; role: Role; token: string; expiresAt: number }) => void;
+  signOut: () => void;
+};
+
+/** Пользователь кабинета. Вход — только по коду из письма (страница /login), сессия на 12 часов. */
+export const useSession = create<SessionState>()(
+  persist((set) => ({
+    userId: "u_admin", role: "ADMIN", token: null, expiresAt: 0,
+    signIn: (userId, role) => set({ userId, role }), setRole: (role) => set({ role }),
+    start: (p) => set(p), signOut: () => set({ token: null, expiresAt: 0 }),
+  }), { name: "proxodnaya.session", version: 2, migrate: (s) => ({ ...(s as object), token: null, expiresAt: 0 }) as SessionState }),
 );

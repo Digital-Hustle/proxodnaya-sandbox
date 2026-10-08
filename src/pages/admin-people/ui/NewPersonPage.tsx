@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Check, ArrowLeft, ArrowRight } from "lucide-react";
 import { api, useDb, type Worker } from "@/shared/api";
 import { Button, Card, Field, Input, Select, toast, PageHeader } from "@/shared/ui";
-import { TimePicker } from "@/shared/ui";
+import { WeekPlanEditor, weekPlan, planDays, planValid, type WeekPlan } from "@/features/plan-week";
 import { cn, todayKey, hhmm } from "@/shared/lib";
 import { routes } from "@/shared/const/router";
 import { spring, tween, press } from "@/shared/config/motion";
@@ -15,6 +15,8 @@ const STEPS = ["Данные", "Фото", "Смена", "Приглашение
 const CONTRACTORS = ["Генподрядчик", "СтройМонтаж", "Бетон-Юг", "ЭлектроСеть", "ИнжСистемы", "ТехноКран"];
 
 /** Заведение человека за ≤ 2 минуты (Д9): данные → фото → смена → инвайт. */
+const PLAN_DAYS = 14;
+
 export const NewPersonPage = () => {
   const db = useDb();
   const nav = useNavigate();
@@ -26,7 +28,8 @@ export const NewPersonPage = () => {
   const [contractor, setContractor] = useState(CONTRACTORS[1]);
   const [zoneIds, setZoneIds] = useState<string[]>(["z_a", "z_b"]);
   const [photo, setPhoto] = useState<string>();
-  const [shift, setShift] = useState(() => { const h = new Date().getHours(); return { start: hhmm(Date.now() - 30 * 60000).slice(0, 2) + ":00", end: `${String(Math.min(23, Math.max(h + 8, 17))).padStart(2, "0")}:00` }; });
+  // По умолчанию — каждый день и время, в которое сотрудник может пройти уже сейчас (удобно для демо).
+  const [plan, setPlan] = useState<WeekPlan>(() => { const h = new Date().getHours(); return weekPlan([0, 1, 2, 3, 4, 5, 6], hhmm(Date.now() - 30 * 60000).slice(0, 2) + ":00", `${String(Math.min(23, Math.max(h + 8, 17))).padStart(2, "0")}:00`); });
   const [created, setCreated] = useState<Worker | null>(null);
   const [busy, setBusy] = useState(false);
   const live = created ? db.workers.find((w) => w.id === created.id) ?? created : null;
@@ -36,11 +39,12 @@ export const NewPersonPage = () => {
   const finish = async () => {
     setBusy(true);
     const w = await api.createWorker({ fullName: fullName.trim(), position, contractor, zoneIds, photo });
-    await api.upsertShift({ workerId: w.id, day: todayKey(), start: shift.start, end: shift.end });
+    const to = new Date(); to.setDate(to.getDate() + PLAN_DAYS - 1);
+    await api.assignSchedule({ workerIds: [w.id], weekdays: [], start: "", end: "", days: planDays(plan), from: todayKey(), to: todayKey(to) });
     setCreated(w); setBusy(false); go(1);
     toast.success("Сотрудник заведён");
   };
-  const canNext = [nameOk && zoneIds.length > 0, true, shift.start < shift.end][step] ?? true;
+  const canNext = [nameOk && zoneIds.length > 0, true, planValid(plan)][step] ?? true;
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -89,11 +93,8 @@ export const NewPersonPage = () => {
               {step === 1 && <PhotoCapture value={photo} onChange={setPhoto} />}
               {step === 2 && (
                 <div className="flex flex-col gap-5">
-                  <p className="text-sm text-muted-foreground">Смена на сегодня. Без неё киоск не допустит сотрудника.</p>
-                  <div className="grid grid-cols-2 gap-3 sm:gap-5">
-                    <Field label="Начало"><TimePicker value={shift.start} onChange={(v) => setShift((s) => ({ ...s, start: v }))} /></Field>
-                    <Field label="Конец" error={shift.start >= shift.end ? "Конец смены должен быть позже начала" : null}><TimePicker value={shift.end} onChange={(v) => setShift((s) => ({ ...s, end: v }))} /></Field>
-                  </div>
+                  <p className="text-sm text-muted-foreground">График на {PLAN_DAYS} дней с сегодняшнего. Без смены киоск не допустит сотрудника; потом график меняется в «Сменах».</p>
+                  <WeekPlanEditor value={plan} onChange={setPlan} />
                 </div>
               )}
               {step === 3 && live && <InviteCard w={live} />}

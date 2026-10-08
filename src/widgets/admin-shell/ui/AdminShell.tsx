@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
-import { NavLink, Link, Outlet, useLocation, useNavigate } from "react-router";
+import { NavLink, Link, Navigate, Outlet, useLocation, useNavigate } from "react-router";
 import { motion } from "motion/react";
-import { LayoutGrid, Users, ScrollText, CalendarClock, BarChart3, Sparkles, Settings, MoreHorizontal, ScanLine, Home, ChevronRight, MonitorSmartphone, UserCog, Lock, KeyRound } from "lucide-react";
+import { LayoutGrid, Users, ScrollText, CalendarClock, BarChart3, Sparkles, Settings, MoreHorizontal, ScanLine, Home, ChevronRight, MonitorSmartphone, UserCog, Lock, KeyRound, LogOut, Repeat2 } from "lucide-react";
 import { useSession, can, roleLabel, type Perm } from "@/entities/session";
 import { AssistantFab } from "@/features/ask-assistant";
 import { Avatar, Status, toast, EmptyState, Logo, ThemePicker, PreferencesButton, InstallButton, OfflineBanner, Dialog, Button, HeaderBar, NavTrack, TrackIndicator, useTrackIndicator } from "@/shared/ui";
 import { routes } from "@/shared/const/router";
 import { cn } from "@/shared/lib";
-import { api, useDb } from "@/shared/api";
+import { api, useDb, sessionUser } from "@/shared/api";
 import { pageIn, press, duration } from "@/shared/config/motion";
 
 const NAV: { to: string; label: string; short: string; icon: typeof Users; perm: Perm; end?: boolean }[] = [
@@ -29,19 +29,19 @@ export const AdminShell = () => {
   const nav = useNavigate();
   const [more, setMore] = useState(false);
   const [roleOpen, setRoleOpen] = useState(false);
-  const { role, userId, signIn } = useSession();
+  const { role, signIn, token, signOut } = useSession();
   const db = useDb();
-  const admins = db.admins ?? [];
-  const me = admins.find((u) => u.id === userId);
+  // ADR-046: кабинет открыт только по живой сессии (вход по коду из письма). Отключили доступ — сессия гаснет сразу.
+  const me = sessionUser(db, token);
+  const wasIn = !!token;
   // Роль берётся из учётной записи: администратор поменял её в «Доступе» — панель сразу перестраивается.
-  useEffect(() => {
-    if (me && me.status !== "DISABLED") { if (me.role !== role) signIn(me.id, me.role); return; }
-    const fallback = admins.find((u) => u.role === "ADMIN" && u.status === "ACTIVE");
-    if (fallback) { if (me) toast.info("Ваш доступ отключён — вы вошли как администратор"); signIn(fallback.id, fallback.role); }
-  }, [me, role, admins, signIn]);
-  const switchTo = (id: string) => {
-    try { const u = api.signInAdmin(id); signIn(u.id, u.role); setRoleOpen(false); toast.success(`Вы вошли как ${u.name}`); }
-    catch (e) { toast.error(e instanceof Error ? e.message : "Не удалось войти"); }
+  useEffect(() => { if (me && me.role !== role) signIn(me.id, me.role); }, [me, role, signIn]);
+  useEffect(() => { if (wasIn && !me) { toast.info("Сессия завершена — войдите снова"); signOut(); } }, [wasIn, me, signOut]);
+  const leave = async (again = false) => {
+    if (token) await api.signOutAdmin(token);
+    signOut(); setRoleOpen(false); setMore(false);
+    nav(again ? routes.login : routes.home, { replace: true });
+    if (!again) toast.success("Вы вышли из кабинета");
   };
   const items = NAV.filter((n) => can(role, n.perm));
   const MOBILE = items.filter((n) => MOBILE_PREF.includes(n.perm)).slice(0, 4);
@@ -50,6 +50,8 @@ export const AdminShell = () => {
   const cur = BY_LEN.find((n) => (n.end ? loc.pathname === n.to : loc.pathname.startsWith(n.to)));
   const allowed = !cur || can(role, cur.perm);
   const ind = useTrackIndicator(loc.pathname);
+  // Во время ухода со страницы оболочка ещё видна (затухание раздела) — уводим на вход только из самого кабинета.
+  if (!me) return loc.pathname.startsWith(routes.admin) ? <Navigate to={`${routes.login}?next=${encodeURIComponent(loc.pathname + loc.search)}`} replace /> : null;
 
   return (
     <div className="relative isolate min-h-svh text-foreground">
@@ -58,7 +60,7 @@ export const AdminShell = () => {
         <Link to={routes.home} className="shrink-0 rounded-md px-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"><Logo sub="администратор" /></Link>
         <NavTrack items={items.map(({ to, label, end }) => ({ to, label, end }))} className="ml-auto hidden lg:block xl:ml-6" />
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
-          <Button variant="quiet" className="hidden h-12 rounded-md md:inline-flex" onClick={() => setRoleOpen(true)} aria-label={`Пользователь: ${me?.name ?? ""}, ${roleLabel(role)}`}>{me ? <Avatar name={me.name} className="size-7" /> : <UserCog />}<span className="hidden 2xl:inline">{roleLabel(role)}</span></Button>
+          <Button variant="quiet" className="hidden h-12 rounded-md md:inline-flex" onClick={() => setRoleOpen(true)} aria-label={`Пользователь: ${me.name}, ${roleLabel(role)}`}><Avatar name={me.name} className="size-7" /><span className="hidden 2xl:inline">{roleLabel(role)}</span></Button>
           <InstallButton className="hidden lg:inline-flex" />
           <PreferencesButton className="hidden lg:flex" />
           <Link to={routes.kiosk} target="_blank" className="hidden md:block" tabIndex={-1}><Button variant="brand" className="h-12 rounded-md"><ScanLine />Киоск</Button></Link>
@@ -68,7 +70,7 @@ export const AdminShell = () => {
 
       <OfflineBanner />
       <motion.main key={loc.pathname} {...pageIn} className="mx-auto w-full max-w-7xl px-4 pb-nav pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pb-16">
-        {allowed ? <Outlet /> : <EmptyState icon={<Lock />} title="Нет доступа" text={`Роль «${roleLabel(role)}» не открывает этот раздел`} action={<Button variant="secondary" onClick={() => setRoleOpen(true)}><UserCog />Сменить роль</Button>} className="py-24" />}
+        {allowed ? <Outlet /> : <EmptyState icon={<Lock />} title="Нет доступа" text={`Роль «${roleLabel(role)}» не открывает этот раздел`} action={<Button variant="secondary" onClick={() => setRoleOpen(true)}><UserCog />Учётная запись</Button>} className="py-24" />}
       </motion.main>
       {can(role, "assistant") && !loc.pathname.startsWith(routes.adminAssistant) && <AssistantFab fullPath={routes.adminAssistant} />}
 
@@ -90,7 +92,7 @@ export const AdminShell = () => {
       <Dialog open={more} onClose={() => setMore(false)} title="Ещё">
         <div className="flex flex-col gap-1">
           <button type="button" onClick={() => { setMore(false); setRoleOpen(true); }} className="flex min-h-control-lg items-center gap-3 rounded-md px-3 text-left text-base font-medium transition-colors duration-fast hover:bg-surface">
-            <UserCog className="size-5 shrink-0" /><span className="flex-1">{me?.name ?? "Пользователь"}<span className="block text-sm font-normal text-muted-foreground">{roleLabel(role)}</span></span><ChevronRight className="size-4 text-subtle-foreground" />
+            <UserCog className="size-5 shrink-0" /><span className="flex-1">{me.name}<span className="block text-sm font-normal text-muted-foreground">{roleLabel(role)}</span></span><ChevronRight className="size-4 text-subtle-foreground" />
           </button>
           {[...MORE, { to: routes.home, label: "На главную", icon: Home }].map(({ to, label, icon: Icon }) => (
             <button key={to} type="button" onClick={() => { setMore(false); nav(to); }}
@@ -104,16 +106,17 @@ export const AdminShell = () => {
         </div>
       </Dialog>
 
-      <Dialog open={roleOpen} onClose={() => setRoleOpen(false)} title="Сменить пользователя" description="Демо: в продукте вход по корпоративной учётной записи. Роль задаёт администратор в разделе «Доступ», права проверяет сервер">
-        <div role="radiogroup" aria-label="Пользователь" className="flex flex-col gap-2">
-          {admins.filter((u) => u.status !== "DISABLED").map((u) => (
-            <button key={u.id} type="button" role="radio" aria-checked={u.id === userId} onClick={() => switchTo(u.id)}
-              className={cn("flex items-center gap-3 rounded-lg border px-4 py-3 text-left outline-none transition-colors duration-fast focus-visible:ring-2 focus-visible:ring-ring", u.id === userId ? "border-primary bg-accent text-accent-foreground" : "border-border hover:bg-surface")}>
-              <Avatar name={u.name} className="size-9" />
-              <span className="flex min-w-0 flex-1 flex-col gap-0.5"><span className="truncate font-medium">{u.name}</span><span className="truncate text-sm opacity-75">{roleLabel(u.role)}</span></span>
-              {u.status === "INVITED" && <Status tone="info">приглашён</Status>}
-            </button>
-          ))}
+      <Dialog open={roleOpen} onClose={() => setRoleOpen(false)} title="Учётная запись" description="Вход — по коду из письма, без пароля. Роль назначает администратор в разделе «Доступ», права проверяет сервер">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-3 rounded-lg bg-muted p-4">
+            <Avatar name={me.name} className="size-11" />
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5"><span className="truncate font-medium">{me.name}</span><span className="truncate text-sm text-muted-foreground">{me.email}</span></span>
+            <Status tone="success">{roleLabel(me.role)}</Status>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button variant="secondary" onClick={() => leave(true)}><Repeat2 />Войти другим</Button>
+            <Button variant="danger-soft" onClick={() => leave()}><LogOut />Выйти</Button>
+          </div>
         </div>
       </Dialog>
     </div>

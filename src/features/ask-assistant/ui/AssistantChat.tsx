@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowUp, Settings2, Users, AlarmClock, ShieldAlert, Timer, UserSearch } from "lucide-react";
+import { ArrowUp, Check, Square, Settings2, Users, AlarmClock, ShieldAlert, Timer, UserSearch } from "lucide-react";
 import { assistant, type AssistantAnswer } from "@/shared/api";
-import { Badge, Button, LogoMark, Spinner } from "@/shared/ui";
+import { Badge, Button, LogoMark } from "@/shared/ui";
+import { StreamReply, TOOL_LABEL, type Live } from "./StreamReply";
 import { cn } from "@/shared/lib";
-import { fadeUp, press, spring, stagger } from "@/shared/config/motion";
+import { fadeUp, press, spring, stagger, tween } from "@/shared/config/motion";
 import { LlmSettings } from "./LlmSettings";
 
 import { useChatHistory, type Msg } from "../model/history";
@@ -37,11 +38,15 @@ export const AssistantChat = ({ className, compact }: { className?: string; comp
   const setMsgs = useChatHistory((s) => s.update);
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
+  const [live, setLive] = useState<Live | null>(null);
+  const abort = useRef<AbortController | null>(null);
   const [settings, setSettings] = useState(false);
   const [llm, setLlm] = useState(() => assistant.loadLlm());
   const scroller = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { const el = scroller.current; if (msgs.length) el?.scrollTo({ top: el.scrollHeight, behavior: "smooth" }); }, [msgs, busy]);
+  // Пока ответ пишется, лента «прилипает» к низу, только если пользователь сам не отмотал вверх.
+  useEffect(() => { const el = scroller.current; if (el && live && el.scrollHeight - el.scrollTop - el.clientHeight < 160) el.scrollTop = el.scrollHeight; }, [live]);
 
   const send = async (text = q) => {
     const t = text.trim();
@@ -50,12 +55,22 @@ export const AssistantChat = ({ className, compact }: { className?: string; comp
     const history = msgs.map((m) => ({ role: m.role, text: m.text }));
     setMsgs((m) => [...m, { id: Date.now(), role: "user", text: t }]);
     setBusy(true);
+    const ctl = new AbortController();
+    abort.current = ctl;
+    let acc: Live = { tools: [], chunks: [] };
+    setLive(acc);
     try {
-      const a = await assistant.ask(t, history);
+      const a = await assistant.ask(t, history, {
+        signal: ctl.signal,
+        onEvent: (e) => { acc = e.type === "tool" ? { ...acc, tools: [...acc.tools, e.name] } : { ...acc, chunks: [...acc.chunks, e.text] }; setLive(acc); },
+      });
       setMsgs((m) => [...m, { id: Date.now() + 1, role: "assistant", text: a.text, answer: a }]);
     } catch (e) {
-      setMsgs((m) => [...m, { id: Date.now() + 1, role: "assistant", text: e instanceof Error ? e.message : "Не удалось получить ответ", error: true }]);
-    } finally { setBusy(false); input.current?.focus(); }
+      const stopped = e instanceof DOMException && e.name === "AbortError";
+      const partial = acc.chunks.join("");
+      setMsgs((m) => [...m, stopped ? { id: Date.now() + 1, role: "assistant", text: partial ? `${partial.trimEnd()}…\n\nОтвет остановлен.` : "Ответ остановлен.", error: false }
+        : { id: Date.now() + 1, role: "assistant", text: e instanceof Error ? e.message : "Не удалось получить ответ", error: true }]);
+    } finally { setLive(null); setBusy(false); abort.current = null; input.current?.focus(); }
   };
 
   return (
@@ -96,6 +111,11 @@ export const AssistantChat = ({ className, compact }: { className?: string; comp
                   ) : (<>
                     <LogoMark className="mt-0.5 hidden size-8 sm:flex" />
                     <div className="flex min-w-0 flex-1 flex-col gap-3">
+                      {m.answer && m.answer.tools.length > 0 && (
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                          {[...new Set(m.answer.tools)].map((t) => <span key={t} className="inline-flex items-center gap-1"><Check className="size-3 text-brand" strokeWidth={3} />{TOOL_LABEL[t] ?? t}</span>)}
+                        </div>
+                      )}
                       <p className={cn("whitespace-pre-wrap text-base leading-relaxed", m.error && "text-destructive")}>{m.text}</p>
                       {m.answer?.table && m.answer.table.rows.length > 0 && <Table t={m.answer.table} />}
                       {m.answer && m.answer.sources.length > 0 && (
@@ -106,10 +126,11 @@ export const AssistantChat = ({ className, compact }: { className?: string; comp
                 </motion.div>
               ))}
             </AnimatePresence>
-            {busy && (
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <LogoMark className="hidden size-8 sm:flex" /><Spinner className="size-4" />Собираю данные…
-              </div>
+            {live && (
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...spring.soft, opacity: tween.base }} className="flex gap-3" aria-live="polite">
+                <LogoMark className="mt-0.5 hidden size-8 sm:flex" />
+                <StreamReply live={live} />
+              </motion.div>
             )}
           </div>
         )}
@@ -122,7 +143,8 @@ export const AssistantChat = ({ className, compact }: { className?: string; comp
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
             placeholder="Задайте вопрос…"
             className="field-sizing-content max-h-40 min-h-control-md flex-1 resize-none bg-transparent py-2.5 text-base outline-none placeholder:text-subtle-foreground" />
-          <Button type="submit" size="icon" variant="brand" disabled={!q.trim() || busy} aria-label="Отправить" className="rounded-md"><ArrowUp /></Button>
+          {busy ? <Button type="button" size="icon" variant="secondary" aria-label="Остановить ответ" className="rounded-md" onClick={() => abort.current?.abort()}><Square className="fill-current" /></Button>
+            : <Button type="submit" size="icon" variant="brand" disabled={!q.trim()} aria-label="Отправить" className="rounded-md"><ArrowUp /></Button>}
         </form>
       </div>
       <LlmSettings open={settings} onClose={() => { setSettings(false); setLlm(assistant.loadLlm()); }} />

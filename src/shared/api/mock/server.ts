@@ -11,6 +11,7 @@ import { atTime, todayKey } from "../../lib/time";
 import { b64uToJson } from "../../lib/b64";
 import { GENESIS, canonical, linkHash } from "../../lib/chain";
 import { motion as m } from "../../config/tokens";
+import { hashTerminalCode, checkTerminalCode, weakTerminalCode, type TerminalCodeKind } from "../../lib/terminalCode";
 
 const latency = (min = 120, max = 380) => new Promise((r) => setTimeout(r, min + Math.random() * (max - min)));
 
@@ -141,6 +142,8 @@ export const kioskScan = async (raw: string, checkpointId: string, mode: Termina
 
   const rule = checkRules(db, worker, checkpointId, resolved);
   if (rule) return { kind: "decision", result: deny(rule, wb) };
+  // ADR-046: сверять не с чем — эталона лица нет или он ещё на проверке.
+  if (mode !== "QR_ONLY" && worker.face && worker.face.status !== "ACTIVE") return { kind: "decision", result: deny("FACE_NOT_ENROLLED", wb) };
   // ADR-042: «Только QR» — подпись, окно, одноразовость и правила допуска без сверки лица.
   if (mode === "QR_ONLY") return { kind: "decision", result: record({ ...wb, decision: "ALLOW", code: "OK", source: "QR", note: "Режим «Только QR», без сверки лица" }) };
 
@@ -268,6 +271,7 @@ export const kioskSnapshot = async (kioskId: string): Promise<OfflineSnapshot | 
       qrToleranceSec: s.qrToleranceSec, shiftGraceMin: s.shiftGraceMin, requireShift: s.requireShift, repeatScanCooldownSec: s.repeatScanCooldownSec ?? 30,
       maxHours: s.offlineMaxHours ?? 12, afterExpiry: s.offlineAfterExpiry ?? "GUARD", checkShift: s.offlineCheckShift ?? true, unknownDevice: s.offlineUnknownDevice ?? "DENY",
     },
+    codes: db.terminalCodes,
   };
 };
 
@@ -433,14 +437,21 @@ export type WorkerDraft = Pick<Worker, "fullName" | "position" | "contractor" | 
 
 export const createWorker = async (draft: WorkerDraft) => {
   await latency();
-  const w: Worker = { ...draft, id: randomId("w", 6), status: "active", permitUntil: todayKey(new Date(Date.now() + 180 * 86400000)), inviteCode: inviteCode(), createdAt: Date.now() };
+  const w: Worker = { ...draft, id: randomId("w", 6), status: "active", permitUntil: todayKey(new Date(Date.now() + 180 * 86400000)), inviteCode: inviteCode(), createdAt: Date.now(),
+    face: draft.photo ? { status: "ACTIVE", source: "HR", at: Date.now() } : { status: "NONE" } };
   mutate((d) => { d.workers.push(w); });
   return w;
 };
 
 export const updateWorker = async (id: string, patch: Partial<Worker>) => {
   await latency(80, 200);
-  mutate((d) => { const w = d.workers.find((x) => x.id === id); if (w) Object.assign(w, patch); });
+  mutate((d) => {
+    const w = d.workers.find((x) => x.id === id);
+    if (!w) return;
+    Object.assign(w, patch);
+    // Фото, снятое администратором, — эталон от отдела кадров (ADR-046).
+    if (patch.photo && !patch.face) w.face = { status: "ACTIVE", source: "HR", at: Date.now() };
+  });
 };
 
 export const regenerateInvite = async (id: string) => {
@@ -462,15 +473,25 @@ export const upsertShift = async (s: Omit<Shift, "id"> & { id?: string }) => {
   });
 };
 
-/** График: сотрудники × дни недели (0 = Пн) в периоде [from, to]. Существующие смены в эти дни заменяются. Возвращает число созданных смен. */
-export const assignSchedule = async (p: { workerIds: string[]; weekdays: number[]; from: string; to: string; start: string; end: string }) => {
+/**
+ * График: сотрудники × дни недели (0 = Пн) в периоде [from, to]. Существующие смены в эти дни заменяются.
+ * Время — общее (start/end) или своё для каждого дня (days, ADR-046). Возвращает число созданных смен.
+ */
+export type WeekDayPlan = { weekday: number; start: string; end: string };
+export const assignSchedule = async (p: { workerIds: string[]; weekdays: number[]; from: string; to: string; start: string; end: string; days?: WeekDayPlan[] }) => {
   await latency(120, 260);
-  const days: string[] = [];
+  const plan = new Map<number, { start: string; end: string }>((p.days ?? p.weekdays.map((weekday) => ({ weekday, start: p.start, end: p.end }))).map((x) => [x.weekday, x]));
+  for (const t of plan.values()) if (!(t.start < t.end)) throw new Error("Конец смены должен быть позже начала");
+  const days: Array<{ day: string; start: string; end: string }> = [];
   const [y, m, dd] = p.from.split("-").map(Number);
-  for (let d = new Date(y, m - 1, dd); todayKey(d) <= p.to && days.length < 366; d.setDate(d.getDate() + 1)) if (p.weekdays.includes((d.getDay() + 6) % 7)) days.push(todayKey(d));
+  for (let d = new Date(y, m - 1, dd); todayKey(d) <= p.to && days.length < 366; d.setDate(d.getDate() + 1)) {
+    const t = plan.get((d.getDay() + 6) % 7);
+    if (t) days.push({ day: todayKey(d), ...t });
+  }
+  const keys = new Set(days.map((x) => x.day));
   mutate((d) => {
-    d.shifts = d.shifts.filter((x) => !(p.workerIds.includes(x.workerId) && days.includes(x.day)));
-    for (const w of p.workerIds) for (const day of days) d.shifts.push({ id: randomId("s"), workerId: w, day, start: p.start, end: p.end });
+    d.shifts = d.shifts.filter((x) => !(p.workerIds.includes(x.workerId) && keys.has(x.day)));
+    for (const w of p.workerIds) for (const x of days) d.shifts.push({ id: randomId("s"), workerId: w, day: x.day, start: x.start, end: x.end });
   });
   return days.length * p.workerIds.length;
 };
@@ -695,4 +716,134 @@ export const signInAdmin = (id: string) => {
     if (x.status === "INVITED") { x.status = "ACTIVE"; logAccess(d, { by: id, target: id, action: "JOIN" }); }
   });
   return u;
+};
+
+
+// ---------- ADR-046: коды на терминалах ----------
+/** Кто может менять код: сервисный — администратор, служба безопасности и инженер; охранника — без инженера. */
+export const CODE_ROLES: Record<TerminalCodeKind, Role[]> = { service: ["ADMIN", "SECURITY_OFFICER", "INSTALLER"], guard: ["ADMIN", "SECURITY_OFFICER"] };
+
+/** Сменить код. Сервер проверяет роль и стойкость кода, хранит только хэш; терминалы получают его со следующим снимком. */
+export const setTerminalCode = async (kind: TerminalCodeKind, code: string, byId: string) => {
+  await latency(200, 400);
+  const db = getDb();
+  const u = adminsOf(db).find((x) => x.id === byId);
+  if (!u || u.status !== "ACTIVE" || !CODE_ROLES[kind].includes(u.role)) throw new Error("Недостаточно прав, чтобы менять этот код");
+  const weak = weakTerminalCode(code);
+  if (weak) throw new Error(weak);
+  const rec = await hashTerminalCode(code, byId);
+  mutate((d) => { d.terminalCodes = { ...d.terminalCodes, [kind]: rec }; logAccess(d, { by: byId, target: byId, action: "CODE", code: kind }); });
+};
+
+
+// ---------- ADR-046: вход в кабинет по коду из письма ----------
+export const LOGIN_CODE_LEN = 6;
+export const LOGIN_TTL_MS = 10 * 60_000;
+export const LOGIN_RESEND_MS = 45_000;
+export const LOGIN_TRIES = 5;
+export const SESSION_TTL_MS = 12 * 3600_000;
+
+/** o.smirnova@proxodnaya.ru → o.s•••••@proxodnaya.ru — чтобы человек узнал адрес, но не светить его целиком. */
+export const maskEmail = (e: string) => { const [u, d] = e.split("@"); return `${u.slice(0, Math.min(3, Math.max(1, u.length - 2)))}${"•".repeat(Math.max(2, u.length - 3))}@${d}`; };
+
+/**
+ * Отправить код. Ответ одинаковый для любого адреса: по нему нельзя узнать, есть ли такой пользователь.
+ * demoCode — только в песочнице (вместо письма); в продукте поля нет.
+ */
+export const requestLoginCode = async (rawEmail: string) => {
+  await latency(350, 650);
+  const email = rawEmail.trim().toLowerCase();
+  if (!EMAIL.test(email)) throw new Error("Проверьте адрес почты");
+  const db = getDb();
+  const prev = db.loginCodes?.find((c) => c.email === email);
+  if (prev && Date.now() - prev.sentAt < LOGIN_RESEND_MS) throw new Error(`Повторно отправить код можно через ${Math.ceil((LOGIN_RESEND_MS - (Date.now() - prev.sentAt)) / 1000)} с`);
+  const u = adminsOf(db).find((x) => x.email === email && x.status !== "DISABLED");
+  const now = Date.now();
+  let demoCode: string | undefined;
+  if (u) {
+    demoCode = String(crypto.getRandomValues(new Uint32Array(1))[0] % 10 ** LOGIN_CODE_LEN).padStart(LOGIN_CODE_LEN, "0");
+    const h = await hashTerminalCode(demoCode, email);
+    mutate((d) => { d.loginCodes = [...(d.loginCodes ?? []).filter((c) => c.email !== email && c.expiresAt > now), { email, salt: h.salt, hash: h.hash, iter: h.iter, expiresAt: now + LOGIN_TTL_MS, sentAt: now, tries: 0 }]; });
+  } else mutate((d) => { d.loginCodes = [...(d.loginCodes ?? []).filter((c) => c.email !== email), { email, salt: "", hash: "", iter: 0, expiresAt: now + LOGIN_TTL_MS, sentAt: now, tries: 0 }]; });
+  return { sentTo: maskEmail(email), expiresAt: now + LOGIN_TTL_MS, resendAt: now + LOGIN_RESEND_MS, demoCode };
+};
+
+/** Проверить код: 5 попыток, затем код сгорает. Успех — сессия на 12 часов, приглашённый становится активным. */
+export const verifyLoginCode = async (rawEmail: string, code: string) => {
+  await latency(400, 700);
+  const email = rawEmail.trim().toLowerCase();
+  const db = getDb();
+  const rec = db.loginCodes?.find((c) => c.email === email);
+  if (!rec || rec.expiresAt < Date.now()) throw new Error("Код устарел — запросите новый");
+  const ok = !!rec.hash && (await checkTerminalCode(code, "service", { salt: rec.salt, hash: rec.hash, iter: rec.iter, digits: LOGIN_CODE_LEN, updatedAt: 0, by: email }));
+  const u = adminsOf(getDb()).find((x) => x.email === email && x.status !== "DISABLED");
+  if (!ok || !u) {
+    const left = LOGIN_TRIES - rec.tries - 1;
+    mutate((d) => { d.loginCodes = left > 0 ? d.loginCodes?.map((c) => (c.email === email ? { ...c, tries: c.tries + 1 } : c)) : d.loginCodes?.filter((c) => c.email !== email); });
+    throw new Error(left > 0 ? `Неверный код. Осталось попыток: ${left}` : "Код введён неверно 5 раз — запросите новый");
+  }
+  const token = randomId("sess") + randomId("");
+  const expiresAt = Date.now() + SESSION_TTL_MS;
+  mutate((d) => {
+    d.loginCodes = d.loginCodes?.filter((c) => c.email !== email);
+    d.adminSessions = [...(d.adminSessions ?? []).filter((x) => x.expiresAt > Date.now()), { token, userId: u.id, createdAt: Date.now(), expiresAt }].slice(-200);
+    const x = d.admins?.find((v) => v.id === u.id);
+    if (x) { x.lastSeen = Date.now(); if (x.status === "INVITED") { x.status = "ACTIVE"; logAccess(d, { by: u.id, target: u.id, action: "JOIN" }); } }
+    logAccess(d, { by: u.id, target: u.id, action: "LOGIN" });
+  });
+  return { user: { ...u, status: "ACTIVE" as const }, token, expiresAt };
+};
+
+/** Сессия жива? Отключённый пользователь и отозванная сессия — нет. */
+export const sessionUser = (db: Db, token: string | null) => {
+  const s = token ? db.adminSessions?.find((x) => x.token === token) : undefined;
+  if (!s || s.revokedAt || s.expiresAt < Date.now()) return null;
+  const u = adminsOf(db).find((x) => x.id === s.userId);
+  return u && u.status !== "DISABLED" ? u : null;
+};
+
+export const signOutAdmin = async (token: string) => {
+  await latency(60, 150);
+  mutate((d) => {
+    const s = d.adminSessions?.find((x) => x.token === token);
+    if (s) { s.revokedAt = Date.now(); logAccess(d, { by: s.userId, target: s.userId, action: "LOGOUT" }); }
+  });
+};
+
+
+// ---------- ADR-046: эталон лица ----------
+export const faceMessage = (workerId: string, deviceId: string, at: number) => `face|${workerId}|${deviceId}|${at}`;
+
+/**
+ * Селфи-эталон с телефона. Запрос подписан ключом телефона — прислать эталон за другого человека с чужого
+ * устройства нельзя. Живость проверяется по кадрам; эталон не включается сам — его подтверждает человек.
+ */
+export const enrollFace = async (p: { workerId: string; deviceId: string; at: number; signature: string; photo: string; frames: FrameStat[]; publicKey?: string }) => {
+  await latency(500, 900);
+  const db = getDb();
+  const w = db.workers.find((x) => x.id === p.workerId);
+  // Песочница: телефон и «сервер» могут жить в разных браузерах — тогда проверяем присланным ключом, как при первом скане.
+  const dev = db.devices.find((x) => x.id === p.deviceId && x.workerId === p.workerId && !x.revokedAt)
+    ?? (p.publicKey && !db.devices.some((x) => x.id === p.deviceId) ? { publicKey: p.publicKey } : undefined);
+  if (!w || !dev) throw new Error("Телефон не привязан к этому пропуску");
+  if (Math.abs(Date.now() - p.at) > 5 * 60_000) throw new Error("Запрос устарел — попробуйте ещё раз");
+  if (!(await verify(dev.publicKey, p.signature, faceMessage(p.workerId, p.deviceId, p.at)))) throw new Error("Подпись телефона не сошлась");
+  const live = livenessCode(p.frames);
+  if (live) throw new Error(REASONS[live].message + ". " + REASONS[live].hint);
+  if (!p.photo.startsWith("data:image/")) throw new Error("Не удалось прочитать снимок");
+  mutate((d) => { const x = d.workers.find((v) => v.id === p.workerId); if (x) x.face = { status: "PENDING", source: "PHONE", at: Date.now(), pendingPhoto: p.photo }; });
+};
+
+/** Подтвердить или отклонить эталон с телефона: служба безопасности сверяет снимок с документом. */
+export const reviewFace = async (workerId: string, approve: boolean, byId: string, comment?: string) => {
+  await latency(150, 300);
+  mutate((d) => {
+    const w = d.workers.find((v) => v.id === workerId);
+    if (!w?.face || w.face.status !== "PENDING") return;
+    const photo = w.face.pendingPhoto;
+    if (approve && photo) w.photo = photo;
+    w.face = approve
+      ? { status: "ACTIVE", source: w.face.source, at: Date.now(), by: byId }
+      : { status: "REJECTED", source: w.face.source, at: Date.now(), by: byId, comment: comment?.trim() || "Снимок не подошёл" };
+  });
 };

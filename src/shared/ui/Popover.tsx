@@ -27,9 +27,11 @@ export const usePopover = (minWidth = 280, prefH = 360) => {
     const key = (e: KeyboardEvent) => { if (e.key === "Escape") { setOpen(false); anchor.current?.focus(); } };
     addEventListener("pointerdown", close, true);
     addEventListener("keydown", key);
+    // Прокрутка внутри самой панели (колонки времени, длинный список) позицию не меняет — не перерисовываем.
+    const onScroll = (e: Event) => { if (!panel.current?.contains(e.target as Node)) place(); };
     addEventListener("resize", place);
-    addEventListener("scroll", place, true);
-    return () => { removeEventListener("pointerdown", close, true); removeEventListener("keydown", key); removeEventListener("resize", place); removeEventListener("scroll", place, true); };
+    addEventListener("scroll", onScroll, true);
+    return () => { removeEventListener("pointerdown", close, true); removeEventListener("keydown", key); removeEventListener("resize", place); removeEventListener("scroll", onScroll, true); };
   }, [open, place]);
   return { open, setOpen, pos, anchor, panel };
 };

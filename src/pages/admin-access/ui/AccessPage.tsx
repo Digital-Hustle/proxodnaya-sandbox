@@ -11,7 +11,7 @@ import { fadeUp, stagger } from "@/shared/config/motion";
 
 const ROLE_OPTIONS = ROLES.map((r) => ({ value: r.id, label: r.label }));
 const STATUS_ORDER: Record<AdminUser["status"], number> = { ACTIVE: 0, INVITED: 1, DISABLED: 2 };
-const ACTION: Record<AccessEvent["action"], string> = { INVITE: "Приглашение", ROLE: "Смена роли", DISABLE: "Доступ отключён", ENABLE: "Доступ возвращён", JOIN: "Первый вход" };
+const ACTION: Record<AccessEvent["action"], string> = { INVITE: "Приглашение", ROLE: "Смена роли", DISABLE: "Доступ отключён", ENABLE: "Доступ возвращён", JOIN: "Первый вход", CODE: "Смена кода терминалов", LOGIN: "Вход по коду из письма", LOGOUT: "Выход" };
 const msg = (e: unknown, f: string) => (e instanceof Error ? e.message : f);
 
 const StatusMark = ({ u }: { u: AdminUser }) =>
@@ -141,7 +141,7 @@ export const AccessPage = () => {
                 <li key={e.id} className="flex flex-col gap-0.5 px-4 py-3 sm:flex-row sm:items-center sm:gap-4 sm:px-6">
                   <span className="shrink-0 text-sm tabular-nums text-muted-foreground sm:w-28">{dateRu(e.ts)}, {hhmm(e.ts)}</span>
                   <span className="min-w-0 flex-1 text-sm">
-                    <span className="font-medium">{ACTION[e.action]}</span> · {nameOf(e.target)}
+                    <span className="font-medium">{ACTION[e.action]}</span> · {e.action === "CODE" ? (e.code === "guard" ? "код охранника" : "сервисный код") : nameOf(e.target)}
                     {e.action === "ROLE" && e.from && e.to && <span className="text-muted-foreground"> · {roleLabel(e.from)} → {roleLabel(e.to)}</span>}
                     {e.action === "INVITE" && e.to && <span className="text-muted-foreground"> · {roleLabel(e.to)}</span>}
                   </span>

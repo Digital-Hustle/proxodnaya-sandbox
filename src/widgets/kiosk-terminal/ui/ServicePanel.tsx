@@ -4,10 +4,10 @@ import { FlaskConical, Unlink, ExternalLink, WifiOff, RotateCcw } from "lucide-r
 import { api, useDb, terminalModeOf, offlinePolicyOf, type Kiosk } from "@/shared/api";
 import { Button, Dialog, Field, Input, SwitchRow, Status, toast, InstallButton } from "@/shared/ui";
 import { routes } from "@/shared/const/router";
-import { agoRu } from "@/shared/lib";
+import { agoRu, DEMO_CODES } from "@/shared/lib";
 import { useOfflinePass } from "@/features/offline-pass";
+import { useTerminalCode } from "../model/useTerminalCode";
 
-export const SERVICE_PIN = "2580";
 export const MODE_LABEL = { QR_FACE: "QR + лицо", FACE_FIRST: "Сначала лицо, QR — запасной", QR_ONLY: "Только QR" } as const;
 export const OFFLINE_LABEL = { GUARD: "Пропуск охранником", CLOSED: "Проход закрыт", LOCAL: "Автономная проверка QR" } as const;
 
@@ -25,12 +25,25 @@ export const ServicePanel = ({ open, onClose, kioskId, kiosk, simOffline, setSim
   const close = () => { onClose(); setPin(""); };
   const cp = db.checkpoints.find((c) => c.id === kiosk?.checkpointId);
   const off = useOfflinePass();
+  const code = useTerminalCode("service", { paired: !!kiosk?.pairedAt, offline: simOffline });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault(); setBusy(true);
+    const okay = await code.check(pin);
+    setBusy(false);
+    if (okay) { setOk(true); setErr(null); return; }
+    setPin(""); setErr(code.left > 1 ? `Неверный код. Осталось попыток: ${code.left - 1}` : "Неверный код. Ввод заблокирован на минуту");
+  };
   return (
     <Dialog open={open} onClose={close} title="Сервисная панель" description={ok ? "Для инженера терминалов" : "Введите сервисный код"}>
       {!ok ? (
-        <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); if (pin === SERVICE_PIN) setOk(true); else toast.error("Неверный код"); }}>
-          <Field label="Сервисный код" hint="Демо: 2580"><Input type="password" inputMode="numeric" maxLength={4} autoFocus value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} placeholder="••••" /></Field>
-          <Button type="submit" disabled={pin.length < 4}>Открыть</Button>
+        <form className="flex flex-col gap-4" onSubmit={submit}>
+          <Field label="Сервисный код" hint={code.factory ? `Заводской код: ${DEMO_CODES.service}. Смените его в админке → Терминалы` : `${code.digits} цифр · задаётся в админке → Терминалы`}
+            error={code.lockedSec ? `Слишком много попыток. Повторите через ${code.lockedSec} с` : err}>
+            <Input type="password" inputMode="numeric" autoComplete="off" maxLength={code.digits} autoFocus disabled={!!code.lockedSec} value={pin} onChange={(e) => { setPin(e.target.value.replace(/\D/g, "")); setErr(null); }} placeholder={"•".repeat(code.digits)} />
+          </Field>
+          <Button type="submit" disabled={pin.length !== code.digits || busy || !!code.lockedSec}>Открыть</Button>
         </form>
       ) : (
         <div className="flex flex-col gap-5">
@@ -43,6 +56,7 @@ export const ServicePanel = ({ open, onClose, kioskId, kiosk, simOffline, setSim
             <Row k="Без связи" v={OFFLINE_LABEL[offlinePolicyOf(db, kiosk)]} />
             <Row k="Снимок допусков" v={off.snapshot ? `${agoRu(off.snapshot.at)} · ${off.snapshot.workers.length} чел.` : "ещё не скачан"} />
             <Row k="Ждут отправки" v={off.queue.length ? `${off.queue.length} прох.` : "нет"} />
+            <Row k="Коды" v={code.factory ? <Status tone="warning" dot>заводские</Status> : "заданы в админке"} />
             <Row k="Журнал терминала" v={off.head.seq ? `${off.head.seq} зап. · подписан` : "пуст"} />
             {kiosk?.syncError && <Row k="Отправка" v={<Status tone="danger" dot>{kiosk.syncError.message}</Status>} />}
             {kiosk?.pairedAt && <Row k="Привязан" v={agoRu(kiosk.pairedAt)} />}

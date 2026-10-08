@@ -12,6 +12,7 @@ export const REASONS: Record<ReasonCode, { decision: Decision; message: string; 
   DEVICE_MISMATCH: { decision: "DENY", message: "Пропуск с чужого устройства", hint: "Обратитесь к администратору" },
   WORKER_BLOCKED: { decision: "DENY", message: "Доступ заблокирован", hint: "Обратитесь к администратору" },
   FACE_NOT_FOUND: { decision: "DENY", message: "Лицо не найдено", hint: "Встаньте напротив камеры" },
+  FACE_NOT_ENROLLED: { decision: "DENY", message: "Лицо ещё не добавлено", hint: "Добавьте лицо в приложении или обратитесь к охраннику" },
   FACE_LOW_QUALITY: { decision: "DENY", message: "Плохое качество кадра", hint: "Подойдите ближе, снимите капюшон" },
   FACE_MISMATCH: { decision: "DENY", message: "Лицо не совпадает с владельцем пропуска", hint: "Проход только по своему пропуску" },
   LIVENESS_FAILED: { decision: "DENY", message: "Проверка живости не пройдена", hint: "Выполните действие на экране" },

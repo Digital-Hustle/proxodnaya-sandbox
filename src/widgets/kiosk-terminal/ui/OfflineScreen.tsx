@@ -3,9 +3,10 @@ import { motion } from "motion/react";
 import { ShieldCheck, WifiOff } from "lucide-react";
 import { api, useDb, type DecisionResult, type OfflinePolicy } from "@/shared/api";
 import { Button, Dialog, Field, Input, Select, toast } from "@/shared/ui";
+import { DEMO_CODES } from "@/shared/lib";
+import { useTerminalCode } from "../model/useTerminalCode";
 import { fadeUp, popIn, stagger, duration, ease } from "@/shared/config/motion";
 
-export const GUARD_PIN = "0000";
 const pulse = { duration: duration.loop, repeat: Infinity, ease: ease.inOut } as const;
 
 /**
@@ -18,10 +19,15 @@ export const OfflineScreen = ({ policy, checkpointId, onResult }: { policy: Offl
   const [who, setWho] = useState(db.workers[0]?.id ?? "");
   const [note, setNote] = useState("");
   const [pin, setPin] = useState("");
-  const pinBad = pin.length === 4 && pin !== GUARD_PIN;
+  const code = useTerminalCode("guard", { paired: true, offline: true });
+  const [pinErr, setPinErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const submit = async () => {
+    setBusy(true);
+    const ok = await code.check(pin);
+    if (!ok) { setBusy(false); setPin(""); setPinErr(code.left > 1 ? `Неверный код. Осталось попыток: ${code.left - 1}` : "Неверный код. Ввод заблокирован на минуту"); return; }
     const r = await api.kioskManual(who, checkpointId, `Без связи: ${note.trim()}`, "Охранник поста · PIN");
-    setOpen(false); setNote(""); setPin("");
+    setBusy(false); setOpen(false); setNote(""); setPin(""); setPinErr(null);
     toast.info("Ручной пропуск сохранён. Когда появится связь, он уйдёт в журнал на подтверждение");
     onResult(r);
   };
@@ -39,11 +45,14 @@ export const OfflineScreen = ({ policy, checkpointId, onResult }: { policy: Offl
         {policy === "GUARD" && <motion.div variants={fadeUp}><Button size="lg" variant="secondary" onClick={() => setOpen(true)}><ShieldCheck />Пропуск охранником</Button></motion.div>}
       </motion.div>
       <Dialog open={open} onClose={() => setOpen(false)} title="Пропуск охранником" description="Запись помечается как ручная, хранится на терминале и уходит в журнал, когда связь вернётся"
-        footer={<Button disabled={!who || !note.trim() || pin !== GUARD_PIN} onClick={submit}><ShieldCheck />Пропустить</Button>}>
+        footer={<Button disabled={!who || !note.trim() || pin.length !== code.digits || busy || !!code.lockedSec} onClick={submit}><ShieldCheck />Пропустить</Button>}>
         <div className="flex flex-col gap-5">
           <Field label="Сотрудник" hint="Сверьте лицо с фото из снимка допусков"><Select value={who} onChange={setWho} options={db.workers.filter((w) => w.status === "active").map((w) => ({ value: w.id, label: w.fullName, hint: w.position }))} /></Field>
           <Field label="Причина"><Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Например: нет связи, личность подтверждена по паспорту" /></Field>
-          <Field label="PIN охранника" hint="Демо: 0000" error={pinBad ? "Неверный PIN" : null}><Input type="password" inputMode="numeric" maxLength={4} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} placeholder="••••" /></Field>
+          <Field label="Код охранника" hint={code.factory ? `Заводской код: ${DEMO_CODES.guard}` : `${code.digits} цифр · проверяется на терминале, работает без связи`}
+            error={code.lockedSec ? `Слишком много попыток. Повторите через ${code.lockedSec} с` : pinErr}>
+            <Input type="password" inputMode="numeric" autoComplete="off" maxLength={code.digits} disabled={!!code.lockedSec} value={pin} onChange={(e) => { setPin(e.target.value.replace(/\D/g, "")); setPinErr(null); }} placeholder={"•".repeat(code.digits)} />
+          </Field>
         </div>
       </Dialog>
     </div>
