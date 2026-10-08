@@ -1,12 +1,12 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { motion } from "motion/react";
-import { ChevronLeft, ChevronRight, Trash2, Pencil, CalendarRange } from "lucide-react";
-import { api, useDb, buildIntervals } from "@/shared/api";
-import { Avatar, Button, Card, Dialog, Field, Select, toast, PageHeader } from "@/shared/ui";
+import { ChevronLeft, ChevronRight, Trash2, Pencil, CalendarRange, Search, CalendarX } from "lucide-react";
+import { api, useDb, type ShiftFilter } from "@/shared/api";
+import { Avatar, Button, Card, Dialog, Field, Input, Segmented, EmptyState, LoadMore, RowsSkeleton, toast, PageHeader } from "@/shared/ui";
 import { TimePicker, DatePicker } from "@/shared/ui";
 import { ScheduleDialog } from "./ScheduleDialog";
 import { atTime, todayKey, durationRu, cn } from "@/shared/lib";
-import { useNow } from "@/shared/hooks";
+import { useNow, usePaged, useDebounced } from "@/shared/hooks";
 import { spring, fadeUp, stagger } from "@/shared/config/motion";
 
 const FROM = 6, TO = 24;
@@ -34,8 +34,11 @@ export const ShiftsPage = () => {
   const [sched, setSched] = useState(false);
   const [edit, setEdit] = useState<{ workerId: string; start: string; end: string } | null>(null);
   const shift = (d: number) => { const x = new Date(atTime(day, "12:00")); x.setDate(x.getDate() + d); setDay(todayKey(x)); };
-  const intervals = useMemo(() => buildIntervals(db), [db]);
-  const rows = db.workers.map((w) => ({ w, s: db.shifts.find((x) => x.workerId === w.id && x.day === day), iv: intervals.filter((i) => i.workerId === w.id && (todayKey(new Date(i.start)) === day)) }));
+  const [q, setQ] = useState("");
+  const dq = useDebounced(q);
+  const [filter, setFilter] = useState<ShiftFilter>("all");
+  const page = usePaged((cursor, limit) => api.queryShiftRows({ day, q: dq, filter, cursor, limit }), JSON.stringify([day, dq, filter]), { live: db, id: (r) => r.worker.id });
+  const editName = edit ? db.workers.find((w) => w.id === edit.workerId)?.fullName : undefined;
   const existing = edit ? db.shifts.find((x) => x.workerId === edit.workerId && x.day === day) : undefined;
 
   return (
@@ -51,6 +54,11 @@ export const ShiftsPage = () => {
             <Button onClick={() => setSched(true)}><CalendarRange />Назначить график</Button>
           </div>
         } />
+      <div className="mb-3 flex flex-col gap-2 sm:mb-4 sm:flex-row sm:items-center sm:gap-3">
+        <Input icon={<Search />} value={q} onChange={(e) => setQ(e.target.value)} placeholder="ФИО, должность, подрядчик" aria-label="Поиск" className="bg-card" />
+        <Segmented value={filter} onChange={setFilter} label="Фильтр смен" className="shrink-0 self-start sm:self-auto"
+          options={[{ value: "all", label: "Все" }, { value: "planned", label: "Со сменой" }, { value: "unplanned", label: "Без смены" }]} />
+      </div>
       <motion.div variants={fadeUp} initial="hidden" animate="show"><Card className="overflow-hidden">
         <div className="flex items-end border-b border-border px-4 pb-2 pt-4 sm:px-6">
           <div className="hidden w-60 shrink-0 text-xs text-muted-foreground md:block">Сотрудник</div>
@@ -58,8 +66,11 @@ export const ShiftsPage = () => {
             {HOURS.map((h) => <span key={h} className="absolute -translate-x-1/2 first:translate-x-0" style={{ left: `${((h - FROM) / (TO - FROM)) * 100}%` }}>{String(h).padStart(2, "0")}:00</span>)}
           </div>
         </div>
-        <motion.ul key={day} variants={stagger(0.03, 0.1)} initial="hidden" animate="show">
-          {rows.map(({ w, s, iv }) => (
+        {!page.ready ? <RowsSkeleton /> : page.items.length === 0 && !page.error ? (
+          <EmptyState icon={<CalendarX />} title={dq || filter !== "all" ? "Никого не нашли" : "Сотрудников пока нет"} text={dq || filter !== "all" ? "Измените запрос или фильтр" : "Заведите людей в разделе «Люди»"} />
+        ) : (
+        <motion.ul key={`${day}${dq}${filter}`} variants={stagger(0.015, 0.05)} initial="hidden" animate="show">
+          {page.items.map(({ worker: w, shift: s, intervals: iv }) => (
             <motion.li key={w.id} variants={fadeUp} className="border-b border-border last:border-0">
               <button type="button" onClick={() => setEdit({ workerId: w.id, start: s?.start ?? "08:00", end: s?.end ?? "17:00" })}
                 className="group flex w-full min-w-0 flex-col gap-2 px-4 py-3 text-left transition-colors duration-fast hover:bg-muted sm:px-6 md:flex-row md:items-center md:gap-0">
@@ -73,6 +84,8 @@ export const ShiftsPage = () => {
             </motion.li>
           ))}
         </motion.ul>
+        )}
+        {page.ready && <LoadMore shown={page.items.length} total={page.total} hasMore={page.hasMore} loading={page.loading} error={page.error} onMore={page.more} />}
       </Card></motion.div>
       <ScheduleDialog open={sched} onClose={() => setSched(false)} />
       <Dialog open={!!edit} onClose={() => setEdit(null)} title="Смена" description={dayTitle(day)}
@@ -82,7 +95,7 @@ export const ShiftsPage = () => {
         </>)}>
         {edit && (
           <div className="flex flex-col gap-5">
-            <Field label="Сотрудник"><Select value={edit.workerId} onChange={(v) => setEdit({ ...edit, workerId: v })} options={db.workers.map((w) => ({ value: w.id, label: w.fullName, hint: w.position }))} /></Field>
+            <Field label="Сотрудник"><div className="truncate text-sm font-medium">{editName ?? "—"}</div></Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Начало"><TimePicker value={edit.start} onChange={(v) => setEdit({ ...edit, start: v })} /></Field>
               <Field label="Конец" error={edit.start >= edit.end ? "Должен быть позже начала" : null}><TimePicker value={edit.end} onChange={(v) => setEdit({ ...edit, end: v })} /></Field>

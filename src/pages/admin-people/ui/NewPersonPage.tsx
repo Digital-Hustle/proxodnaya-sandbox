@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router";
 import { AnimatePresence, motion } from "motion/react";
-import { Check, ArrowLeft, ArrowRight, Timer } from "lucide-react";
+import { Check, ArrowLeft, ArrowRight } from "lucide-react";
 import { api, useDb, type Worker } from "@/shared/api";
-import { Button, Card, Field, Input, Select, toast, PageHeader, Status } from "@/shared/ui";
+import { Button, Card, Field, Input, Select, toast, PageHeader } from "@/shared/ui";
 import { TimePicker } from "@/shared/ui";
 import { cn, todayKey, hhmm } from "@/shared/lib";
-import { useNow } from "@/shared/hooks";
 import { routes } from "@/shared/const/router";
 import { spring, tween, press } from "@/shared/config/motion";
 import { PhotoCapture } from "@/features/capture-photo";
@@ -19,8 +18,6 @@ const CONTRACTORS = ["Генподрядчик", "СтройМонтаж", "Бе
 export const NewPersonPage = () => {
   const db = useDb();
   const nav = useNavigate();
-  const now = useNow(1000);
-  const [startedAt] = useState(Date.now);
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1);
   const [fullName, setFullName] = useState("");
@@ -33,7 +30,6 @@ export const NewPersonPage = () => {
   const [created, setCreated] = useState<Worker | null>(null);
   const [busy, setBusy] = useState(false);
   const live = created ? db.workers.find((w) => w.id === created.id) ?? created : null;
-  const elapsed = Math.round(((created ? created.createdAt : now) - startedAt) / 1000);
 
   const nameOk = fullName.trim().split(/\s+/).length >= 2;
   const go = (d: number) => { setDir(d); setStep((s) => s + d); };
@@ -48,8 +44,7 @@ export const NewPersonPage = () => {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <PageHeader title="Новый сотрудник" sub="Профиль, фото, смена и приглашение для активации пропуска"
-        actions={<Status tone={elapsed <= 120 ? "success" : "warning"} className="h-8 px-3 text-sm" title="Время заведения: по условиям кейса (Д9) сотрудник должен быть заведён и пройти за 2 минуты"><Timer /><span className="tabular-nums">{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}</span><span className="opacity-70">из 2:00</span></Status>} />
+      <PageHeader title="Новый сотрудник" sub="Профиль, фото, смена и приглашение для активации пропуска" />
 
       <ol className="mb-4 grid grid-cols-4 gap-2 sm:mb-5" aria-label="Шаги">
         {STEPS.map((s, i) => (

@@ -3,7 +3,7 @@
 import type { Attempt, Challenge, Checkpoint, Db, Kiosk, TerminalMode, DecisionResult, Device, Direction, FrameStat, ReasonCode, Shift, Worker } from "../types";
 import { getDb, mutate, resetDb } from "./store";
 import { REASONS } from "./reasons";
-import { presenceNow, shiftFor } from "./derived";
+import { presenceNow, shiftFor, buildIntervals } from "./derived";
 import { currentWindow, parsePassQr, signedMessage, buildPassQr } from "../../lib/passQr";
 import { verify, createKey, loadKey } from "../../lib/deviceKey";
 import { randomId, inviteCode } from "../../lib/id";
@@ -356,3 +356,132 @@ export const updateSettings = async (patch: Partial<ReturnType<typeof getDb>["se
 export const resetDemo = () => resetDb();
 
 export type { Device };
+
+
+// ---------- ADR-039: постраничные запросы ----------
+// UI никогда не тянет коллекцию целиком: только страницы с курсором, фильтры и сортировка — на «сервере».
+// В продукте это GET /workers?cursor=&limit=, GET /attempts?…, GET /shifts?day=… с теми же полями ответа.
+export type Page<T> = { items: T[]; nextCursor: string | null; total: number };
+export const PAGE_MAX = 100;
+const clampLimit = (n?: number) => Math.min(Math.max(1, n ?? 40), PAGE_MAX);
+/** Офсетный курсор — для списков, отсортированных по имени (вставки редки). */
+const pageByOffset = <T,>(all: T[], cursor: string | null | undefined, limit?: number): Page<T> => {
+  const off = cursor ? Math.max(0, parseInt(cursor, 36) || 0) : 0;
+  const n = clampLimit(limit);
+  return { items: all.slice(off, off + n), nextCursor: off + n < all.length ? (off + n).toString(36) : null, total: all.length };
+};
+const norm = (s?: string) => (s ?? "").trim().toLowerCase().replace(/ё/g, "е");
+
+export type WorkerFilter = "all" | "inside" | "blocked";
+export type WorkerQuery = { q?: string; filter?: WorkerFilter; zoneId?: string; contractor?: string; cursor?: string | null; limit?: number };
+export type WorkerRow = Worker & { inside: boolean; insideZoneId?: string };
+export const queryWorkers = async (p: WorkerQuery): Promise<Page<WorkerRow>> => {
+  await latency(80, 220);
+  const db = getDb();
+  const pres = new Map(presenceNow(db).map((x) => [x.workerId, x.zoneId]));
+  const q = norm(p.q);
+  const all = db.workers
+    .filter((w) => (p.filter === "inside" ? pres.has(w.id) : p.filter === "blocked" ? w.status === "blocked" : true))
+    .filter((w) => !p.zoneId || w.zoneIds.includes(p.zoneId))
+    .filter((w) => !p.contractor || w.contractor === p.contractor)
+    .filter((w) => !q || norm(`${w.fullName} ${w.position} ${w.contractor}`).includes(q))
+    .sort((a, b) => a.fullName.localeCompare(b.fullName, "ru") || (a.id < b.id ? -1 : 1))
+    .map((w) => ({ ...w, inside: pres.has(w.id), insideZoneId: pres.get(w.id) }));
+  return pageByOffset(all, p.cursor, p.limit);
+};
+
+export type AttemptQuery = { day?: string; decision?: string; direction?: string; checkpointId?: string; workerId?: string; q?: string; cursor?: string | null; limit?: number };
+const filterAttempts = (db: Db, p: AttemptQuery) => {
+  const names = new Map(db.workers.map((w) => [w.id, w.fullName]));
+  const q = norm(p.q);
+  return db.attempts
+    .filter((a) => (!p.day || p.day === "all" || todayKey(new Date(a.ts)) === p.day) && (!p.decision || a.decision === p.decision) && (!p.direction || a.direction === p.direction)
+      && (!p.checkpointId || a.checkpointId === p.checkpointId) && (!p.workerId || a.workerId === p.workerId))
+    .filter((a) => !q || norm(`${(a.workerId && names.get(a.workerId)) ?? ""} ${REASONS[a.code].message} ${a.code}`).includes(q))
+    .sort((a, b) => b.ts - a.ts || (a.id < b.id ? 1 : -1));
+};
+/** Курсор по ключу (ts~id): новые проходы сверху не сдвигают уже загруженные страницы и не дают дублей. */
+export const queryAttempts = async (p: AttemptQuery): Promise<Page<Attempt>> => {
+  await latency(80, 220);
+  const all = filterAttempts(getDb(), p);
+  const n = clampLimit(p.limit);
+  let start = 0;
+  if (p.cursor) {
+    const i = p.cursor.indexOf("~");
+    const ts = Number(p.cursor.slice(0, i)), id = p.cursor.slice(i + 1);
+    start = all.findIndex((a) => a.ts < ts || (a.ts === ts && a.id < id));
+    if (start < 0) start = all.length;
+  }
+  const items = all.slice(start, start + n);
+  const last = items[items.length - 1];
+  return { items, nextCursor: last && start + n < all.length ? `${last.ts}~${last.id}` : null, total: all.length };
+};
+/** Выгрузка CSV: в продукте — отдельный экспорт на сервере (файл по ссылке), здесь — тот же фильтр без страниц. */
+export const exportAttempts = async (p: AttemptQuery): Promise<Attempt[]> => { await latency(150, 300); return filterAttempts(getDb(), p); };
+
+export type ShiftFilter = "all" | "planned" | "unplanned";
+export type ShiftRow = { worker: Worker; shift?: Shift; intervals: { start: number; end?: number }[] };
+export const queryShiftRows = async (p: { day: string; q?: string; filter?: ShiftFilter; cursor?: string | null; limit?: number }): Promise<Page<ShiftRow>> => {
+  await latency(80, 220);
+  const db = getDb();
+  const q = norm(p.q);
+  const shifts = new Map(db.shifts.filter((s) => s.day === p.day).map((s) => [s.workerId, s]));
+  const all = db.workers
+    .filter((w) => !q || norm(`${w.fullName} ${w.position} ${w.contractor}`).includes(q))
+    .filter((w) => (p.filter === "planned" ? shifts.has(w.id) : p.filter === "unplanned" ? !shifts.has(w.id) : true))
+    .sort((a, b) => a.fullName.localeCompare(b.fullName, "ru") || (a.id < b.id ? -1 : 1));
+  const page = pageByOffset(all, p.cursor, p.limit);
+  // Интервалы считаем только для людей на странице — так же поступит сервер.
+  const ids = new Set(page.items.map((w) => w.id));
+  const iv = buildIntervals({ ...db, attempts: db.attempts.filter((a) => a.workerId && ids.has(a.workerId)) });
+  return { ...page, items: page.items.map((w) => ({ worker: w, shift: shifts.get(w.id), intervals: iv.filter((i) => i.workerId === w.id && todayKey(new Date(i.start)) === p.day) })) };
+};
+
+// ---------- Нагрузочные данные (демо масштаба) ----------
+const SCALE_ZONES = [
+  { id: "z_c", name: "Корпус В", capacity: 120 }, { id: "z_d", name: "Корпус Г", capacity: 120 },
+  { id: "z_park", name: "Площадка техники", capacity: 40 }, { id: "z_lab", name: "Лаборатория", capacity: 15 },
+  { id: "z_hq", name: "Штаб строительства", capacity: 60 },
+];
+const LAST = ["Абрамов", "Белов", "Васильев", "Гусев", "Давыдов", "Егоров", "Жуков", "Зайцев", "Ильин", "Комаров", "Лазарев", "Макаров", "Никитин", "Орлов", "Павлов", "Романов", "Семёнов", "Тарасов", "Уткин", "Филиппов", "Хасанов", "Цветков", "Чернов", "Шарипов", "Яковлев"];
+const FIRST = ["Алексей", "Бахтиёр", "Виктор", "Георгий", "Дмитрий", "Евгений", "Захар", "Игорь", "Кирилл", "Леонид", "Михаил", "Николай", "Олег", "Руслан", "Сергей", "Тимофей", "Фёдор", "Шамиль"];
+const MID = ["Александрович", "Борисович", "Викторович", "Геннадьевич", "Иванович", "Михайлович", "Олегович", "Петрович", "Сергеевич"];
+const JOBS = ["Монтажник", "Сварщик", "Бетонщик", "Арматурщик", "Плотник", "Разнорабочий", "Электромонтажник", "Стропальщик", "Отделочник", "Сантехник"];
+const FIRMS = ["СтройМонтаж", "Бетон-Юг", "ЭлектроСеть", "ИнжСистемы", "ТехноКран", "ФасадПро", "ОтделкаСервис", "ГеоТехника", "Генподрядчик"];
+export const SCALE_WORKERS = 400;
+export const isScaled = (db: Db) => db.workers.some((w) => w.id.startsWith("w_s"));
+/** Добавляет 400 человек, 5 зон с КПП, смены на неделю и сегодняшние проходы. Только добавляет — сброс демо возвращает исходные данные. */
+export const seedScale = async () => {
+  await latency(200, 400);
+  mutate((d) => {
+    if (d.workers.some((w) => w.id.startsWith("w_s"))) return;
+    let seed = 42;
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
+    const pick = <T,>(a: T[]) => a[Math.floor(rnd() * a.length)];
+    for (const z of SCALE_ZONES) if (!d.zones.some((x) => x.id === z.id)) d.zones.push({ ...z });
+    for (const z of SCALE_ZONES) if (!d.checkpoints.some((c) => c.zoneId === z.id)) d.checkpoints.push({ id: `cp_${z.id}`, name: `КПП · ${z.name}`, zoneId: z.id });
+    const zoneIds = d.zones.map((z) => z.id);
+    const days = Array.from({ length: 7 }, (_, i) => { const x = new Date(); x.setDate(x.getDate() + i); return todayKey(x); });
+    const now = Date.now(), today = todayKey();
+    for (let i = 0; i < SCALE_WORKERS; i++) {
+      const id = `w_s${i}`;
+      const zs = [...new Set([pick(zoneIds), pick(zoneIds), ...(rnd() < 0.3 ? [pick(zoneIds)] : [])])];
+      const permit = new Date(); permit.setDate(permit.getDate() + (rnd() < 0.04 ? -3 : 30 + Math.floor(rnd() * 200)));
+      d.workers.push({ id, fullName: `${pick(LAST)} ${pick(FIRST)} ${pick(MID)}`, position: pick(JOBS), contractor: pick(FIRMS), status: rnd() < 0.03 ? "blocked" : "active", zoneIds: zs, permitUntil: todayKey(permit), createdAt: now - Math.floor(rnd() * 90) * 86400000 });
+      const late = rnd() < 0.3;
+      const start = late ? "09:00" : "08:00", end = late ? "20:00" : "17:00";
+      for (const day of days) if (new Date(atTime(day, "12:00")).getDay() !== 0 || rnd() < 0.2) d.shifts.push({ id: `s_${id}_${day}`, workerId: id, day, start, end });
+      if (rnd() < 0.62) {
+        const inTs = atTime(today, start) - 15 * 60000 + Math.floor(rnd() * 40 * 60000);
+        if (inTs >= now) continue;
+        const z = zs[0];
+        const cp = d.checkpoints.find((c) => c.zoneId === z)?.id ?? d.checkpoints[0].id;
+        d.attempts.push({ id: randomId("a", 10), ts: inTs, workerId: id, checkpointId: cp, direction: "IN", decision: "ALLOW", code: "OK", source: "QR", score: 0.8 + rnd() * 0.15 });
+        const outTs = inTs + (2 + rnd() * 9) * 3600000;
+        if (outTs < now && rnd() < 0.5) d.attempts.push({ id: randomId("a", 10), ts: outTs, workerId: id, checkpointId: cp, direction: "OUT", decision: "ALLOW", code: "OK", source: "QR", score: 0.8 + rnd() * 0.15 });
+        if (rnd() < 0.08) d.attempts.push({ id: randomId("a", 10), ts: inTs - 60000, workerId: id, checkpointId: cp, direction: "IN", decision: "DENY", code: pick(["FACE_LOW_QUALITY", "QR_EXPIRED", "FACE_MISMATCH"] as ReasonCode[]), source: "QR", score: 0.5 + rnd() * 0.2 });
+      }
+    }
+    d.attempts.sort((a, b) => a.ts - b.ts);
+  });
+};

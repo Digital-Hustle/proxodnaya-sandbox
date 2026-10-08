@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "motion/react";
-import { RotateCcw } from "lucide-react";
-import { api, useDb, FACE_FIRST_MARGIN, type Settings, type CheckpointMode, type TerminalMode, type OfflinePolicy } from "@/shared/api";
+import { RotateCcw, Database } from "lucide-react";
+import { api, useDb, FACE_FIRST_MARGIN, type Settings, type CheckpointMode, type TerminalMode, type OfflinePolicy, isScaled, SCALE_WORKERS } from "@/shared/api";
 import { Check, Minus, BookOpen, ShieldAlert } from "lucide-react";
 import { useSession, can, ROLES, PERMS } from "@/entities/session";
 import { cn } from "@/shared/lib";
@@ -31,7 +31,10 @@ const Choice = ({ active, onClick, title, text, badge }: { active: boolean; onCl
 
 export const SettingsPage = () => {
   const { settings: s, checkpoints } = useDb();
+  const db = useDb();
   const [reset, setReset] = useState(false);
+  const [scaling, setScaling] = useState(false);
+  const scaled = isScaled(db);
   const role = useSession((x) => x.role);
   const set = (patch: Partial<Settings>) => api.updateSettings(patch);
   return (
@@ -114,7 +117,11 @@ export const SettingsPage = () => {
           <div className="flex flex-col gap-4 p-4 sm:p-6">
             <p className="text-pretty text-sm text-muted-foreground">Стенд работает без сервера: данные хранятся в браузере и синхронизируются между вкладками. Биометрия не используется — живое присутствие оценивается по движению в кадре, результат сверки лица задаётся переключателем ниже.</p>
             <div className="rounded-md border border-border px-3"><SwitchRow title="Имитировать несовпадение лица" text="Сверка лица завершится отказом FACE_MISMATCH" checked={s.demoFace === "mismatch"} onChange={(v) => set({ demoFace: v ? "mismatch" : "match" })} /></div>
-            <div><Button variant="danger-soft" onClick={() => setReset(true)}><RotateCcw />Сбросить демо-данные</Button></div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" disabled={scaled || scaling} onClick={() => { setScaling(true); api.seedScale().then(() => { setScaling(false); toast.success(`Добавлено ${SCALE_WORKERS} человек и 5 зон`); }); }}><Database />{scaled ? "Нагрузочные данные добавлены" : scaling ? "Добавляем…" : `Добавить ${SCALE_WORKERS} человек и 5 зон`}</Button>
+              <Button variant="danger-soft" onClick={() => setReset(true)}><RotateCcw />Сбросить демо-данные</Button>
+            </div>
+            <p className="text-pretty text-xs text-muted-foreground">Нагрузочные данные показывают, как интерфейс ведёт себя на большом объекте: списки подгружаются по мере прокрутки, зоны сворачиваются, поиск и фильтры работают на стороне сервера.</p>
           </div>
         </Card></motion.div>
       </motion.div>

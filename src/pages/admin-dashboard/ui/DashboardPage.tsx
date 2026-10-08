@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { motion } from "motion/react";
 import { UserPlus, ArrowRight } from "lucide-react";
@@ -15,6 +15,15 @@ const todayRu = () => new Date().toLocaleDateString("ru-RU", { weekday: "long", 
 export const DashboardPage = () => {
   const db = useDb();
   const presence = useMemo(() => presenceNow(db), [db]);
+  const [allZones, setAllZones] = useState(false);
+  // Зон может быть сколько угодно: при > 6 показываем самые загруженные, остальные — по кнопке.
+  const zoneRows = useMemo(() => {
+    const count = new Map<string, number>();
+    for (const p of presence) count.set(p.zoneId, (count.get(p.zoneId) ?? 0) + 1);
+    const rows = db.zones.map((z) => ({ z, n: count.get(z.id) ?? 0 }));
+    return rows.length > 6 ? rows.sort((a, b) => b.n / Math.max(1, b.z.capacity) - a.n / Math.max(1, a.z.capacity)) : rows;
+  }, [db.zones, presence]);
+  const zonesShown = allZones ? zoneRows : zoneRows.slice(0, 6);
   const [today] = useMemo(() => dailyStats(db, [todayKey()]), [db]);
   const cap = db.zones.reduce((s, z) => s + z.capacity, 0);
   const insights = useMemo(() => {
@@ -61,9 +70,8 @@ export const DashboardPage = () => {
           <Card className="h-full">
             <CardHeader><CardTitle>Сейчас на объекте</CardTitle><Status tone="success" dot>{presence.length}</Status></CardHeader>
             <div className="grid gap-3 px-4 pt-4 sm:grid-cols-3 sm:px-6">
-              {db.zones.map((z) => {
-                const n = presence.filter((p) => p.zoneId === z.id).length;
-                const k = n / z.capacity;
+              {zonesShown.map(({ z, n }) => {
+                const k = n / Math.max(1, z.capacity);
                 return (
                   <div key={z.id} className="flex min-w-0 flex-col gap-2 rounded-md bg-muted p-3">
                     <div className="flex items-baseline justify-between gap-2 text-sm"><span className="truncate text-muted-foreground">{z.name}</span><span className="shrink-0 font-medium tabular-nums">{n}<span className="text-muted-foreground">/{z.capacity}</span></span></div>
@@ -72,6 +80,7 @@ export const DashboardPage = () => {
                 );
               })}
             </div>
+            {zoneRows.length > 6 && <div className="px-4 pt-2 sm:px-6"><Button size="sm" variant="quiet" onClick={() => setAllZones((v) => !v)}>{allZones ? "Свернуть зоны" : `Все зоны · ${zoneRows.length}`}</Button></div>}
             <div className="p-2 sm:p-4"><OnSiteNow /></div>
           </Card>
         </motion.div>

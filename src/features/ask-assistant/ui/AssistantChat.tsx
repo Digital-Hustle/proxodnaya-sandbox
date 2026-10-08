@@ -9,6 +9,9 @@ import { LlmSettings } from "./LlmSettings";
 
 import { useChatHistory, type Msg } from "../model/history";
 
+/** Ответ помощника не раздувает чат: в таблице не больше 30 строк, остальное — в разделе. */
+const TABLE_MAX = 30;
+
 const EMPTY: Msg[] = [];
 
 const SUGGEST = [
@@ -23,7 +26,7 @@ const Table = ({ t }: { t: NonNullable<AssistantAnswer["table"]> }) => (
   <div className="max-h-72 overflow-auto rounded-md bg-card ring-1 ring-border">
     <table className="w-full text-sm">
       <thead className="sticky top-0 bg-muted text-left text-muted-foreground"><tr>{t.columns.map((c) => <th key={c} className="whitespace-nowrap px-3 py-2 font-medium">{c}</th>)}</tr></thead>
-      <tbody>{t.rows.map((r, i) => <tr key={i} className="border-t border-border">{r.map((c, j) => <td key={j} className="px-3 py-2 tabular-nums">{c}</td>)}</tr>)}</tbody>
+      <tbody>{t.rows.slice(0, TABLE_MAX).map((r, i) => <tr key={i} className="border-t border-border">{r.map((c, j) => <td key={j} className="px-3 py-2 tabular-nums">{c}</td>)}</tr>)}</tbody>{t.rows.length > TABLE_MAX && <tfoot><tr className="border-t border-border"><td colSpan={t.columns.length} className="px-3 py-2 text-muted-foreground">Ещё {t.rows.length - TABLE_MAX} строк — уточните вопрос или откройте раздел целиком</td></tr></tfoot>}
     </table>
   </div>
 );
