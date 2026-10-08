@@ -44,7 +44,7 @@ export function useTrackIndicator(dep: unknown) {
   return { ref, x, width, visible };
 }
 
-export const TrackIndicator = ({ ind, className }: { ind: ReturnType<typeof useTrackIndicator>; className?: string }) => (
+export const TrackIndicator = ({ ind, className, children }: { ind: ReturnType<typeof useTrackIndicator>; className?: string; children?: React.ReactNode }) => (
   <motion.span data-indicator aria-hidden style={{ x: ind.x, width: ind.width }}
-    className={cn("pointer-events-none absolute left-0 transition-opacity duration-fast", ind.visible ? "opacity-100" : "opacity-0", className)} />
+    className={cn("pointer-events-none absolute left-0 transition-opacity duration-fast", ind.visible ? "opacity-100" : "opacity-0", className)}>{children}</motion.span>
 );

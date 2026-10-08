@@ -161,11 +161,11 @@ export const contrastLargeTextOnly = {} as const;
 
 export const gradient = {
   /** Фирменный градиент кнопки «СберБанк Онлайн» (снят с sberbank.ru): полоса пропуска, прогресс, акценты */
-  brand: `linear-gradient(90deg, ${p.sber.lime} 0%, ${p.sber.mint} 40%, ${p.sber.cyan} 100%)`,
+  brand: `linear-gradient(90deg in oklab, ${p.sber.lime} 0%, ${p.sber.mint} 40%, ${p.sber.cyan} 100%)`,
   /** Глубокий вариант — под белый текст (CTA, плитка-герой) */
-  "brand-deep": `linear-gradient(120deg, ${p.green[700]} 0%, ${p.sber.green} 45%, ${p.teal[500]} 100%)`,
-  /** Знак «Проходной»: конус брендбука, внутри Logo размывается для мягкости */
-  "brand-conic": `conic-gradient(from 200deg, ${p.sber.blue}, ${p.sber.sky}, ${p.sber.arctic}, ${p.sber.green}, ${p.sber.spring}, ${p.sber.sun}, ${p.sber.blue})`,
+  "brand-deep": `radial-gradient(120% 90% at 100% 100%, ${p.teal[500]}B3 0%, transparent 60%), linear-gradient(135deg in oklab, ${p.green[700]} 0%, ${p.sber.green} 55%, ${p.teal[500]} 100%)`,
+  /** Мягкий «меш» из цветов брендбука без шва конуса (как размытый знак): плитки, превью, акценты */
+  "brand-conic": `radial-gradient(70% 70% at 15% 15%, ${p.sber.sky} 0%, transparent 70%), radial-gradient(70% 70% at 90% 10%, ${p.sber.spring} 0%, transparent 70%), radial-gradient(80% 80% at 85% 90%, ${p.sber.green} 0%, transparent 70%), radial-gradient(80% 80% at 10% 95%, ${p.sber.arctic} 0%, transparent 70%), linear-gradient(135deg in oklab, ${p.sber.blue}, ${p.sber.mint})`,
   /** Блик на знаке и стеклянных плитках */
   sheen: `radial-gradient(90% 70% at 25% 10%, rgb(255 255 255 / 0.55) 0%, rgb(255 255 255 / 0) 60%)`,
   /** Фон страниц: мятный градиент sberbank.ru */
@@ -278,7 +278,11 @@ export const motion = {
   distance: { enter: 14, exit: 8 },
   scale: { hover: 1.015, tap: 0.96, popIn: 0.94, popOut: 0.98 },
   swipe: { offset: 96, velocity: 500 },
-  kiosk: { resultHoldMs: 4000, challengeTimeoutMs: 10000 },
+  kiosk: {
+    resultHoldMs: 4000, challengeTimeoutMs: 10000,
+    /** Детектор движения: кадр 64×48 раз в sampleMs, пиксель «изменился» при разнице яркости > pixelDelta, движение = доля таких > ratio. Камера видна ещё holdMs после последнего движения. */
+    motion: { sampleMs: 200, holdMs: 6000, pixelDelta: 26, ratio: 0.02, width: 64, height: 48 },
+  },
   toast: { durationMs: 3600, errorDurationMs: 6000 },
 } as const;
 

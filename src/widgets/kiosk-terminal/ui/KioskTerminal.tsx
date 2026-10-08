@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Camera, CameraOff, QrCode, ScanFace } from "lucide-react";
 import { api, type Challenge, type DecisionResult } from "@/shared/api";
-import { useCamera } from "@/shared/hooks";
+import { useCamera, useMotionDetect } from "@/shared/hooks";
 import { Aurora, Button, Spinner } from "@/shared/ui";
 import { cn } from "@/shared/lib";
 import { spring, tween, popIn, duration, ease } from "@/shared/config/motion";
@@ -31,6 +31,9 @@ export const KioskTerminal = ({ checkpointId, demoOpen, setDemoOpen }: { checkpo
 
   useEffect(() => { cam.start(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const cameraOn = cam.state === "on" && !noCamera;
+  // Камера работает постоянно (сканер не засыпает), но видео плавно проявляется только при движении в кадре; в покое — живой фон.
+  const moving = useMotionDetect(cam.videoRef, cameraOn);
+  const showVideo = cameraOn && (moving || state.kind !== "idle");
 
   const handleQr = useCallback(async (raw: string) => {
     setLastQr(raw);
@@ -58,22 +61,22 @@ export const KioskTerminal = ({ checkpointId, demoOpen, setDemoOpen }: { checkpo
 
   return (
     <div className="relative isolate flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-card shadow-card ring-1 ring-white/10">
-      <video ref={cam.videoRef} playsInline muted className={cn("absolute inset-0 size-full -scale-x-100 object-cover transition-opacity duration-slow", cameraOn ? "opacity-100" : "opacity-0")} />
-      {!cameraOn && <><Aurora tone="kiosk" intensity={0.7} /><div aria-hidden className="absolute inset-0 bg-vignette" /></>}
-      {cameraOn && <div aria-hidden className="absolute inset-0 bg-linear-to-t from-black/50 to-transparent" />}
+      <video ref={cam.videoRef} playsInline muted className={cn("absolute inset-0 size-full -scale-x-100 object-cover transition-opacity duration-slow", showVideo ? "opacity-100" : "opacity-0")} />
+      <motion.div aria-hidden className="absolute inset-0" animate={{ opacity: showVideo ? 0 : 1 }} transition={tween.base}><Aurora tone="kiosk" intensity={0.9} /></motion.div>
+      <motion.div aria-hidden className="absolute inset-0 bg-linear-to-t from-black/70 via-black/10 to-black/30" animate={{ opacity: showVideo ? 1 : 0 }} transition={tween.base} />
 
       <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-6 overflow-y-auto p-5 text-center sm:gap-8 sm:p-8">
         <AnimatePresence mode="wait">
           {state.kind === "idle" && (
             <motion.div key="idle" variants={popIn} initial="hidden" animate="show" exit="exit" className="flex w-full flex-col items-center gap-6 sm:gap-8">
-              <div className={cn("relative size-44 shrink-0 rounded-lg sm:size-64", cameraOn && "shadow-scrim")}>
+              <div className="relative size-44 shrink-0 sm:size-64">
                 {CORNERS.map((c) => <span key={c} className={cn("absolute size-10 border-white sm:size-14", c)} />)}
                 <motion.div className="absolute inset-x-5 h-1 rounded-full bg-brand-gradient" animate={{ top: ["12%", "88%", "12%"] }} transition={sweep} />
                 {!cameraOn && <div className="absolute inset-0 flex items-center justify-center text-white/50"><QrCode className="size-16 sm:size-20" strokeWidth={1.5} /></div>}
               </div>
               <div className="relative flex flex-col items-center gap-2">
                 <h1 className="text-balance font-display text-3xl font-semibold tracking-display text-white sm:text-4xl lg:text-5xl">Покажите QR-пропуск</h1>
-                <p className="text-balance text-base text-white/70 sm:text-lg">{cameraOn ? "Вход или выход определится автоматически" : cam.state === "denied" ? "Доступ к камере запрещён. Используйте демо-пропуск" : cam.state === "unavailable" ? "Камера не найдена. Используйте демо-пропуск" : "Камера отключена. Используйте демо-пропуск"}</p>
+                <p className="text-balance text-base text-white/70 sm:text-lg">{cameraOn ? (moving ? "Вход или выход определится автоматически" : "Подойдите к камере и поднесите экран телефона") : cam.state === "denied" ? "Доступ к камере запрещён. Используйте демо-пропуск" : cam.state === "unavailable" ? "Камера не найдена. Используйте демо-пропуск" : "Камера отключена. Используйте демо-пропуск"}</p>
               </div>
               {!cameraOn && (
                 <div className="relative flex w-full max-w-sm flex-col gap-2 sm:w-auto sm:max-w-none sm:flex-row sm:gap-3">

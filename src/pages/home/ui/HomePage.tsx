@@ -96,7 +96,7 @@ export const HomePage = () => {
 
         {/* «Сторис» как на sberbank.ru: плитки-суперэллипсы с иллюстрациями */}
         <motion.nav variants={stagger(0.05, 0.3)} initial="hidden" animate="show" aria-label="Быстрый доступ"
-          className="scrollbar-none -mx-4 mt-12 flex gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:mt-16 sm:justify-center sm:gap-6 sm:px-0">
+          className="scrollbar-none relative z-raised -mx-4 mt-8 flex gap-4 overflow-x-auto px-4 pb-4 pt-4 sm:mx-0 sm:mt-12 sm:justify-center sm:gap-6 sm:px-2">
           {STORIES.map(({ to, label, img, icon: Icon, tone }) => (
             <motion.div key={to} variants={fadeUp} className="w-20 shrink-0">
               <motion.div {...lift}>

@@ -9,13 +9,13 @@ export const PassQr = ({ slot = "phone" }: { slot?: string }) => {
   return (
     <div className="flex w-full flex-col items-center gap-4">
       {/* Старый и новый код лежат в одной grid-ячейке: размер плашки не меняется, центр не сбивается. */}
-      <div className="grid aspect-square w-full max-w-72 overflow-hidden rounded-xl bg-white p-4 shadow-card ring-1 ring-border">
+      <div className="grid w-full max-w-72 rounded-xl bg-white p-4 shadow-card ring-1 ring-border">
         <AnimatePresence initial={false}>
           {qr ? (
-            <motion.div key={qr.window} variants={popIn} initial="hidden" animate="show" exit="exit" className="col-start-1 row-start-1 size-full">
-              <StyledQr value={qr.value} label="QR-код пропуска" className="size-full" />
+            <motion.div key={qr.window} variants={popIn} initial="hidden" animate="show" exit="exit" className="col-start-1 row-start-1 w-full self-start">
+              <StyledQr value={qr.value} label="QR-код пропуска" className="w-full" />
             </motion.div>
-          ) : <Skeleton key="sk" className="col-start-1 row-start-1 size-full rounded-sm" />}
+          ) : <Skeleton key="sk" className="col-start-1 row-start-1 aspect-square w-full rounded-sm" />}
         </AnimatePresence>
       </div>
       <div className="flex w-full max-w-72 flex-col gap-2">

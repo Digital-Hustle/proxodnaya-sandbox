@@ -5,7 +5,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-:root {
+:root, .light {
   --background: #E2F5E9;
   --foreground: #172419;
   --card: #FFFFFF;
@@ -61,9 +61,9 @@
   --chart-3: #7EE29A;
   --chart-4: #6B7C8F;
   --chart-5: #9A5200;
-  --gradient-brand: linear-gradient(90deg, #64EE61 0%, #54DC87 40%, #32B8D3 100%);
-  --gradient-brand-deep: linear-gradient(120deg, #0B7323 0%, #21A038 45%, #14A3A8 100%);
-  --gradient-brand-conic: conic-gradient(from 200deg, #0087CD, #00ADEE, #42E3B4, #21A038, #A0E720, #FAED00, #0087CD);
+  --gradient-brand: linear-gradient(90deg in oklab, #64EE61 0%, #54DC87 40%, #32B8D3 100%);
+  --gradient-brand-deep: radial-gradient(120% 90% at 100% 100%, #14A3A8B3 0%, transparent 60%), linear-gradient(135deg in oklab, #0B7323 0%, #21A038 55%, #14A3A8 100%);
+  --gradient-brand-conic: radial-gradient(70% 70% at 15% 15%, #00ADEE 0%, transparent 70%), radial-gradient(70% 70% at 90% 10%, #A0E720 0%, transparent 70%), radial-gradient(80% 80% at 85% 90%, #21A038 0%, transparent 70%), radial-gradient(80% 80% at 10% 95%, #42E3B4 0%, transparent 70%), linear-gradient(135deg in oklab, #0087CD, #54DC87);
   --gradient-sheen: radial-gradient(90% 70% at 25% 10%, rgb(255 255 255 / 0.55) 0%, rgb(255 255 255 / 0) 60%);
   --gradient-page: linear-gradient(160deg, #BBF2D5 0%, #D4F7E0 45%, #EEF7FB 100%);
   --gradient-page-dark: radial-gradient(120% 60% at 50% 0%, rgb(33 160 56 / 0.18) 0%, rgb(20 163 168 / 0.08) 40%, transparent 75%), linear-gradient(#121417, #121417);
@@ -413,6 +413,10 @@
   * { @apply border-border outline-ring/50; }
   /* фон html = фон темы: никаких чёрных полос под вырезом и при оттягивании страницы */
   html { -webkit-tap-highlight-color: transparent; background-color: var(--background); }
+  /* место под полосу прокрутки зарезервировано всегда: центровка не прыгает между страницами и при открытии модалки */
+  html { scrollbar-gutter: stable; }
+  /* смена темы: плавный перелив через View Transitions */
+  ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 450ms; animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
   /* органичные скругления: суперэллипс вместо дуги окружности (Chrome 139+, остальные — обычный радиус) */
   @supports (corner-shape: squircle) {
     [class*="rounded-"]:not(.rounded-full) { corner-shape: squircle; }

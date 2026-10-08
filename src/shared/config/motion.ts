@@ -63,4 +63,4 @@ export const inView = {
 } as const;
 
 /** Прочие числовые токены движения (пороги, скорости) */
-export const motionTokens = { header: m.header, aurora: m.aurora } as const;
+export const motionTokens = { header: m.header, aurora: m.aurora, kioskMotion: m.kiosk.motion } as const;

@@ -115,13 +115,17 @@ function css() {
     ...t.fontImports.map((u) => `@import url("${u}");`),
     '@import "tailwindcss";', "",
     "@custom-variant dark (&:is(.dark *));", "",
-    block(":root", rootVars), block(".dark", darkVars),
+    block(":root, .light", rootVars), block(".dark", darkVars),
     block("@theme", theme), block("@theme inline", inline),
     utils.join("\n\n"), "",
     `@layer base {
   * { @apply border-border outline-ring/50; }
   /* фон html = фон темы: никаких чёрных полос под вырезом и при оттягивании страницы */
   html { -webkit-tap-highlight-color: transparent; background-color: var(--background); }
+  /* место под полосу прокрутки зарезервировано всегда: центровка не прыгает между страницами и при открытии модалки */
+  html { scrollbar-gutter: stable; }
+  /* смена темы: плавный перелив через View Transitions */
+  ::view-transition-old(root), ::view-transition-new(root) { animation-duration: ${ms(t.motion.duration.slow)}; animation-timing-function: ${bez(t.motion.ease.out)}; }
   /* органичные скругления: суперэллипс вместо дуги окружности (Chrome 139+, остальные — обычный радиус) */
   @supports (corner-shape: ${t.cornerShape ?? "squircle"}) {
     [class*="rounded-"]:not(.rounded-full) { corner-shape: ${t.cornerShape ?? "squircle"}; }

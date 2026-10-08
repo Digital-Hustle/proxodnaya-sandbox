@@ -117,7 +117,7 @@
 | spring.counter | stiffness 110, damping 13, mass 0.9 | — |
 | swipe | offset 96, velocity 500 | — |
 | toast | durationMs 3600, errorDurationMs 6000 | — |
-| kiosk | resultHoldMs 4000, challengeTimeoutMs 10000 | — |
+| kiosk | resultHoldMs 4000, challengeTimeoutMs 10000, motion-sampleMs 200, motion-holdMs 6000, motion-pixelDelta 26, motion-ratio 0.02, motion-width 64, motion-height 48 | — |
 <!-- tokens:end -->
 
 ## Редизайн v3 — по живым скриншотам sberbank.ru (октябрь 2026)

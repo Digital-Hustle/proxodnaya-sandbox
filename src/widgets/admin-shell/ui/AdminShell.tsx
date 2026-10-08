@@ -5,7 +5,7 @@ import { LayoutGrid, Users, ScrollText, CalendarClock, BarChart3, Sparkles, Sett
 import { Logo, ThemePicker, PreferencesButton, OfflineBanner, Dialog, Button, Aurora, HeaderBar, NavTrack, TrackIndicator, useTrackIndicator } from "@/shared/ui";
 import { routes } from "@/shared/const/router";
 import { cn } from "@/shared/lib";
-import { pageIn, press } from "@/shared/config/motion";
+import { pageIn, press, duration } from "@/shared/config/motion";
 
 const NAV = [
   { to: routes.admin, label: "Обстановка", short: "Сводка", icon: LayoutGrid, end: true },
@@ -69,7 +69,7 @@ export const AdminShell = () => {
             </button>
           ))}
           <div className="mt-3 flex flex-col gap-3 border-t border-border px-1 pt-4">
-            <span className="px-2 text-sm font-medium text-muted-foreground">Оформление</span><ThemePicker />
+            <span className="px-2 text-sm font-medium text-muted-foreground">Оформление</span><ThemePicker onPick={() => setTimeout(() => setMore(false), duration.slow * 1000)} />
           </div>
         </div>
       </Dialog>
