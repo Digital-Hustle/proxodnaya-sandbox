@@ -1,6 +1,6 @@
 // Мок-бэкенд в браузере. Решение о проходе принимается ЗДЕСЬ, а не в компонентах (как Д2 в продукте:
 // UI только показывает то, что вернул «сервер»).
-import type { Attempt, Challenge, Checkpoint, Db, Kiosk, TerminalMode, OfflinePolicy, ManualReview, AdminUser, AccessEvent, Role, DecisionResult, Device, Direction, FrameStat, ReasonCode, Shift, Worker } from "../types";
+import type { OfflineEvent, OfflineSnapshot, Attempt, Challenge, Checkpoint, Db, Kiosk, TerminalMode, OfflinePolicy, ManualReview, AdminUser, AccessEvent, Role, DecisionResult, Device, Direction, FrameStat, ReasonCode, Shift, Worker } from "../types";
 import { getDb, mutate, resetDb } from "./store";
 import { REASONS } from "./reasons";
 import { presenceNow, shiftFor, buildIntervals } from "./derived";
@@ -103,7 +103,7 @@ const checkRules = (db: Db, worker: Worker, checkpointId: string, resolved: Dire
   return null;
 };
 
-export const kioskScan = async (raw: string, checkpointId: string): Promise<ScanResult> => {
+export const kioskScan = async (raw: string, checkpointId: string, mode: TerminalMode = "QR_FACE"): Promise<ScanResult> => {
   await latency();
   const db = getDb();
   const base = { checkpointId, direction: checkpointDefault(db, checkpointId) };
@@ -140,6 +140,8 @@ export const kioskScan = async (raw: string, checkpointId: string): Promise<Scan
 
   const rule = checkRules(db, worker, checkpointId, resolved);
   if (rule) return { kind: "decision", result: deny(rule, wb) };
+  // ADR-042: «Только QR» — подпись, окно, одноразовость и правила допуска без сверки лица.
+  if (mode === "QR_ONLY") return { kind: "decision", result: record({ ...wb, decision: "ALLOW", code: "OK", source: "QR", note: "Режим «Только QR», без сверки лица" }) };
 
   const c = CHALLENGES[Math.floor(Math.random() * CHALLENGES.length)];
   const token = randomId("ch", 12);
@@ -235,6 +237,69 @@ export const unpairKiosk = async (id: string) => {
 };
 
 /** Ручной пропуск (ADR-040): действует сразу, но запись ждёт подтверждения вторым человеком. */
+/** ADR-042: снимок допусков для автономной проверки. Только открытые данные: публичные ключи, отзывы, допуски, смены. */
+export const kioskSnapshot = async (kioskId: string): Promise<OfflineSnapshot | null> => {
+  await latency(60, 160);
+  const db = getDb();
+  const k = db.kiosks?.find((x) => x.id === kioskId);
+  const checkpoint = db.checkpoints.find((c) => c.id === k?.checkpointId);
+  if (!k?.pairedAt || !checkpoint) return null;
+  const at = Date.now();
+  const s = db.settings;
+  const from = todayKey(new Date(at - 86400000));
+  const to = todayKey(new Date(at + 86400000));
+  mutate((d) => { const x = d.kiosks?.find((v) => v.id === kioskId); if (x) x.snapshotAt = at; });
+  return {
+    at, kioskId, checkpoint,
+    workers: db.workers.map((w) => ({ id: w.id, fullName: w.fullName, position: w.position, contractor: w.contractor, status: w.status, zoneIds: w.zoneIds, permitUntil: w.permitUntil })),
+    devices: db.devices.map((x) => ({ id: x.id, workerId: x.workerId, publicKey: x.publicKey, revokedAt: x.revokedAt })),
+    shifts: db.shifts.filter((x) => x.day >= from && x.day <= to),
+    inside: presenceNow(db).map((p) => p.workerId),
+    rules: {
+      qrToleranceSec: s.qrToleranceSec, shiftGraceMin: s.shiftGraceMin, requireShift: s.requireShift, repeatScanCooldownSec: s.repeatScanCooldownSec ?? 30,
+      maxHours: s.offlineMaxHours ?? 12, afterExpiry: s.offlineAfterExpiry ?? "GUARD", checkShift: s.offlineCheckShift ?? true, unknownDevice: s.offlineUnknownDevice ?? "DENY",
+    },
+  };
+};
+
+/** ADR-042: терминал вернулся на связь — решения из очереди попадают в журнал, сервер сверяет их со своими данными. */
+export const syncOffline = async (kioskId: string, events: OfflineEvent[]) => {
+  await latency(200, 450);
+  const syncedAt = Date.now();
+  let synced = 0;
+  let conflicts = 0;
+  mutate((d) => {
+    for (const e of events) {
+      if (d.attempts.some((a) => a.id === e.id)) continue;
+      let conflict: string | undefined;
+      if (e.decision === "ALLOW") {
+        const dev = e.useKey ? d.devices.find((x) => x.id === e.useKey!.split("|")[0]) : undefined;
+        const w = d.workers.find((x) => x.id === e.workerId);
+        if (dev?.revokedAt && dev.revokedAt < e.ts) conflict = "телефон отвязан до прохода";
+        else if (e.useKey && d.qrUses.includes(e.useKey)) conflict = "этот QR уже погашен на другом терминале";
+        else if (w?.status === "blocked") conflict = "сотрудник заблокирован";
+      }
+      if (conflict) conflicts++;
+      if (e.useKey && !d.qrUses.includes(e.useKey)) d.qrUses.push(e.useKey);
+      const b = e.bindDevice;
+      if (b && e.workerId && !conflict && !d.devices.some((x) => x.id === b.id)) {
+        d.devices.forEach((x) => { if (x.workerId === e.workerId && !x.revokedAt) x.revokedAt = syncedAt; });
+        d.devices.push({ id: b.id, workerId: e.workerId, publicKey: b.publicKey, createdAt: e.ts, label: "Телефон (привязан без связи)" });
+      }
+      d.attempts.push({
+        id: e.id, ts: e.ts, workerId: e.workerId, checkpointId: e.checkpointId, direction: e.direction, decision: e.decision, code: e.code, source: "OFFLINE",
+        note: conflict ? `Конфликт при синхронизации: ${conflict}` : "Проверено терминалом без связи",
+        offline: { kioskId, syncedAt, conflict },
+      });
+      synced++;
+    }
+    d.attempts.sort((a, b) => a.ts - b.ts);
+    const k = d.kiosks?.find((x) => x.id === kioskId);
+    if (k) k.lastSeen = syncedAt;
+  });
+  return { synced, conflicts };
+};
+
 export const kioskManual = async (workerId: string, checkpointId: string, note: string, guard = "Охранник поста") => {
   await latency();
   const { direction } = resolveDirection(getDb(), workerId, checkpointId);

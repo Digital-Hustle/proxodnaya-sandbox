@@ -17,6 +17,7 @@ export const REASONS: Record<ReasonCode, { decision: Decision; message: string; 
   LIVENESS_FAILED: { decision: "DENY", message: "Проверка живости не пройдена", hint: "Выполните действие на экране" },
   CHALLENGE_EXPIRED: { decision: "DENY", message: "Время вышло", hint: "Покажите QR ещё раз" },
   NO_SHIFT: { decision: "DENY", message: "Нет смены на сегодня", hint: "Обратитесь к прорабу" },
+  OFFLINE_EXPIRED: { decision: "DENY", message: "Автономная проверка недоступна", hint: "Связи нет слишком долго — обратитесь к охраннику" },
   OUTSIDE_SHIFT_WINDOW: { decision: "DENY", message: "Вне времени смены", hint: "Проверьте график в приложении" },
   PERMIT_EXPIRED: { decision: "DENY", message: "Просрочен инструктаж или медосмотр", hint: "Обратитесь к ответственному по ТБ" },
   NO_ZONE_PERMIT: { decision: "DENY", message: "Нет допуска в эту зону", hint: "Обратитесь к прорабу" },

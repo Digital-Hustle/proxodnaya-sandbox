@@ -4,12 +4,13 @@ import { Camera, CameraOff, QrCode, ScanFace } from "lucide-react";
 import { api, type Challenge, type DecisionResult, type TerminalMode } from "@/shared/api";
 import { useCamera, useMotionDetect } from "@/shared/hooks";
 import { Button, Spinner } from "@/shared/ui";
-import { cn } from "@/shared/lib";
+import { cn, durationRu } from "@/shared/lib";
 import { spring, tween, popIn, duration, ease } from "@/shared/config/motion";
 import { useQrScanner } from "@/features/scan-qr";
 import { ChallengePrompt, sampleFrames, syntheticFrames } from "@/features/face-challenge";
 import { DemoPanel, useKioskDemo } from "@/features/kiosk-demo";
 import { DecisionScreen } from "./DecisionScreen";
+import { ScanMark } from "./ScanMark";
 
 type State =
   | { kind: "idle" }
@@ -20,13 +21,15 @@ type State =
 
 const CAPTURE_MS = 3500;
 const CORNERS = ["left-0 top-0 rounded-tl-lg border-l-4 border-t-4", "right-0 top-0 rounded-tr-lg border-r-4 border-t-4", "bottom-0 left-0 rounded-bl-lg border-b-4 border-l-4", "bottom-0 right-0 rounded-br-lg border-b-4 border-r-4"];
-const sweep = { duration: duration.loop / 2, repeat: Infinity, repeatType: "mirror", ease: ease.inOut } as const;
 /** Камера и фон сменяют друг друга симметрично: одна и та же длительность и кривая; уход — с паузой, чтобы не мигало. */
 const camIn = { duration: duration.slow * 2, ease: ease.inOut } as const;
 const camOut = { duration: duration.slow * 2, ease: ease.inOut, delay: duration.fast } as const;
 
 /** Терминал КПП: только сканер. Направление (вход/выход) определяет сервер — ADR-037. */
-export const KioskTerminal = ({ checkpointId, mode = "QR_FACE", demoOpen, setDemoOpen }: { checkpointId: string; mode?: TerminalMode; demoOpen: boolean; setDemoOpen: (v: boolean) => void }) => {
+/** offline — ADR-042: связи нет, QR проверяет сам терминал по снимку допусков. */
+export type KioskOffline = { verify: (raw: string) => Promise<DecisionResult>; leftMs: number };
+
+export const KioskTerminal = ({ checkpointId, mode = "QR_FACE", demoOpen, setDemoOpen, offline }: { checkpointId: string; mode?: TerminalMode; demoOpen: boolean; setDemoOpen: (v: boolean) => void; offline?: KioskOffline }) => {
   const faceFirst = mode === "FACE_FIRST";
   const cam = useCamera("user");
   const [state, setState] = useState<State>({ kind: "idle" });
@@ -43,7 +46,8 @@ export const KioskTerminal = ({ checkpointId, mode = "QR_FACE", demoOpen, setDem
     setLastQr(raw);
     setState({ kind: "checking" });
     try {
-      const res = await api.kioskScan(raw, checkpointId);
+      if (offline) { setState({ kind: "result", result: await offline.verify(raw) }); return; }
+      const res = await api.kioskScan(raw, checkpointId, mode);
       if (res.kind === "decision") { setState({ kind: "result", result: res.result }); return; }
       setState({ kind: "challenge", challenge: res.challenge, name: res.worker.fullName.split(" ")[1] ?? res.worker.fullName, progress: 0 });
       const started = Date.now();
@@ -56,7 +60,7 @@ export const KioskTerminal = ({ checkpointId, mode = "QR_FACE", demoOpen, setDem
     } catch {
       setState({ kind: "result", result: { attemptId: "-", decision: "ERROR", code: "SYSTEM_ERROR", message: "Сервис недоступен", hint: "Обратитесь к сотруднику охраны", direction: "IN", ts: Date.now() } });
     }
-  }, [checkpointId, cameraOn, cam.videoRef, setLastQr]);
+  }, [checkpointId, cameraOn, cam.videoRef, setLastQr, offline, mode]);
 
   // Режим «Сначала лицо» (ADR-038): челлендж живости → сервер ищет человека по базе. Не узнал — просим QR (сканер работает всегда).
   const runFace = useCallback(async () => {
@@ -98,10 +102,10 @@ export const KioskTerminal = ({ checkpointId, mode = "QR_FACE", demoOpen, setDem
             <motion.div key="idle" variants={popIn} initial="hidden" animate="show" exit="exit" className="flex w-full flex-col items-center gap-6 sm:gap-8">
               <div className="relative size-44 shrink-0 sm:size-64">
                 {CORNERS.map((c) => <span key={c} className={cn("absolute size-10 border-white sm:size-14", c)} />)}
-                <motion.div aria-hidden className="absolute inset-x-5 h-1 rounded-full bg-brand-gradient shadow-glow" animate={{ top: ["12%", "88%"] }} transition={sweep} />
-                {!cameraOn && <div className="absolute inset-0 flex items-center justify-center text-white/50"><QrCode className="size-16 sm:size-20" strokeWidth={1.5} /></div>}
+                <ScanMark>{!cameraOn && <QrCode className="size-16 sm:size-20" strokeWidth={1.5} />}</ScanMark>
               </div>
               <div className="relative flex flex-col items-center gap-2">
+                {offline && <span className="rounded-full bg-warning/20 px-3 py-1 text-sm font-medium text-warning">Без связи · проверка на терминале · ещё {durationRu(offline.leftMs)}</span>}
                 <h1 className="text-balance font-display text-3xl font-semibold tracking-display text-white sm:text-4xl lg:text-5xl">{faceFirst ? "Посмотрите в камеру" : "Покажите QR-пропуск"}</h1>
                 <p className="text-balance text-base text-white/70 sm:text-lg">{faceFirst && cameraOn ? "Или покажите QR-пропуск. Вход или выход определится автоматически" : cameraOn ? (moving ? "Вход или выход определится автоматически" : "Подойдите к камере и поднесите экран телефона") : cam.state === "denied" ? "Доступ к камере запрещён. Используйте демо-пропуск" : cam.state === "unavailable" ? "Камера не найдена. Используйте демо-пропуск" : "Камера отключена. Используйте демо-пропуск"}</p>
               </div>

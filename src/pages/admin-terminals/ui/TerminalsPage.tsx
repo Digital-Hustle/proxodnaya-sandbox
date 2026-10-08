@@ -20,11 +20,12 @@ const useModeOptions = () => {
     { value: "DEFAULT" as ModeOpt, label: "Как в настройках", hint: MODE_LABEL[def] },
     { value: "QR_FACE" as ModeOpt, label: MODE_LABEL.QR_FACE, hint: "рекомендуется" },
     { value: "FACE_FIRST" as ModeOpt, label: MODE_LABEL.FACE_FIRST },
+    { value: "QR_ONLY" as ModeOpt, label: MODE_LABEL.QR_ONLY, hint: "без сверки лица" },
   ];
 };
 
 type OffOpt = OfflinePolicy | "DEFAULT";
-const OFF_LABEL: Record<OfflinePolicy, string> = { GUARD: "Пропуск охранником", CLOSED: "Проход закрыт" };
+const OFF_LABEL: Record<OfflinePolicy, string> = { GUARD: "Пропуск охранником", CLOSED: "Проход закрыт", LOCAL: "Автономная проверка QR" };
 const useOfflineOptions = () => {
   const { settings } = useDb();
   const def = settings.offlinePolicy ?? "GUARD";
@@ -32,6 +33,7 @@ const useOfflineOptions = () => {
     { value: "DEFAULT" as OffOpt, label: "Как в настройках", hint: OFF_LABEL[def] },
     { value: "GUARD" as OffOpt, label: OFF_LABEL.GUARD, hint: "рекомендуется" },
     { value: "CLOSED" as OffOpt, label: OFF_LABEL.CLOSED },
+    { value: "LOCAL" as OffOpt, label: OFF_LABEL.LOCAL, hint: "по снимку допусков" },
   ];
 };
 const usePerKiosk = () => useDb().settings.terminalScope === "PER_KIOSK";

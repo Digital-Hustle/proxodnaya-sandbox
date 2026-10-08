@@ -7,7 +7,7 @@ export type ReasonCode =
   | "OK" | "QR_MISSING" | "QR_INVALID" | "QR_EXPIRED" | "QR_REUSED" | "DEVICE_UNKNOWN" | "DEVICE_REVOKED" | "DEVICE_MISMATCH"
   | "WORKER_BLOCKED" | "FACE_NOT_FOUND" | "FACE_LOW_QUALITY" | "FACE_MISMATCH" | "LIVENESS_FAILED" | "CHALLENGE_EXPIRED"
   | "NO_SHIFT" | "OUTSIDE_SHIFT_WINDOW" | "PERMIT_EXPIRED" | "NO_ZONE_PERMIT" | "ALREADY_INSIDE" | "NOT_INSIDE"
-  | "TEMP_LOCKED" | "MANUAL_GUARD" | "SYSTEM_ERROR" | "REPEAT_SCAN";
+  | "TEMP_LOCKED" | "MANUAL_GUARD" | "SYSTEM_ERROR" | "REPEAT_SCAN" | "OFFLINE_EXPIRED";
 
 export type WorkerStatus = "active" | "blocked";
 
@@ -38,7 +38,9 @@ export type Attempt = {
   decision: Decision;
   code: ReasonCode;
   /** FACE — проход в режиме «Сначала лицо» (ADR-038). */
-  source: "QR" | "MANUAL" | "FACE";
+  source: "QR" | "MANUAL" | "FACE" | "OFFLINE";
+  /** ADR-042: проход проверен терминалом без связи и пришёл при синхронизации. conflict — что сервер нашёл при сверке. */
+  offline?: { kioskId: string; syncedAt: number; conflict?: string };
   score?: number;
   note?: string;
   /** ADR-040: кто принял ручное решение (охранник поста). */
@@ -82,14 +84,46 @@ export type Settings = {
   offlinePolicy?: OfflinePolicy;
   /** ADR-038/040: GLOBAL — логика одна для всех терминалов (по умолчанию), PER_KIOSK — у каждого своя, а здесь — значение по умолчанию. */
   terminalScope?: TerminalScope;
+  /** ADR-042: сколько часов после последнего снимка терминал пропускает сам (политика LOCAL). */
+  offlineMaxHours?: number;
+  /** ADR-042: что делать, когда срок автономной работы истёк. */
+  offlineAfterExpiry?: "GUARD" | "CLOSED";
+  /** ADR-042: проверять смену по снимку без связи (если включено «Пускать только по смене»). */
+  offlineCheckShift?: boolean;
+  /** ADR-042: ключ телефона, которого нет в снимке: DENY — отказ (продукт), BIND — привязать при первом проходе (песочница). */
+  offlineUnknownDevice?: "DENY" | "BIND";
 };
 
 export type TerminalScope = "GLOBAL" | "PER_KIOSK";
 
 /** ADR-038. QR_FACE — QR + сверка лица 1:1 (по умолчанию). FACE_FIRST — идентификация по лицу 1:N на сервере, QR — запасной путь. */
-export type TerminalMode = "QR_FACE" | "FACE_FIRST";
+export type TerminalMode = "QR_FACE" | "FACE_FIRST" | "QR_ONLY";
 /** GUARD — без связи пропускает только охранник (MANUAL, с причиной). CLOSED — проход закрыт до восстановления связи. */
-export type OfflinePolicy = "GUARD" | "CLOSED";
+export type OfflinePolicy = "GUARD" | "CLOSED" | "LOCAL";
+
+/** ADR-042: что терминал скачивает, пока есть связь, чтобы проверять QR без сервера. Закрытых ключей здесь нет. */
+export type OfflineSnapshot = {
+  at: number;
+  kioskId: string;
+  checkpoint: Checkpoint;
+  workers: Array<Pick<Worker, "id" | "fullName" | "position" | "contractor" | "status" | "zoneIds" | "permitUntil">>;
+  devices: Array<Pick<Device, "id" | "workerId" | "publicKey" | "revokedAt">>;
+  shifts: Shift[];
+  /** Кто был внутри на момент снимка — для направления вход/выход. */
+  inside: string[];
+  rules: {
+    qrToleranceSec: number; shiftGraceMin: number; requireShift: boolean; repeatScanCooldownSec: number;
+    maxHours: number; afterExpiry: "GUARD" | "CLOSED"; checkShift: boolean; unknownDevice: "DENY" | "BIND";
+  };
+};
+
+/** ADR-042: решение, принятое терминалом без связи. Хранится на терминале до синхронизации. */
+export type OfflineEvent = {
+  id: string; ts: number; workerId?: string; checkpointId: string; direction: Direction; decision: Decision; code: ReasonCode;
+  /** deviceId|window — чтобы сервер погасил код и заметил повтор на другом терминале. */
+  useKey?: string;
+  bindDevice?: { id: string; publicKey: string };
+};
 
 /** Терминал (киоск). Пока не сопряжён с проходной в админке — показывает код сопряжения и никого не пропускает. */
 export type Kiosk = {
@@ -102,6 +136,8 @@ export type Kiosk = {
   /** Переопределение Settings.offlinePolicy (только при terminalScope = PER_KIOSK). */
   offlinePolicy?: OfflinePolicy;
   pairedAt?: number;
+  /** ADR-042: когда терминал в последний раз скачал снимок допусков. */
+  snapshotAt?: number;
   lastSeen: number;
   createdAt: number;
 };
