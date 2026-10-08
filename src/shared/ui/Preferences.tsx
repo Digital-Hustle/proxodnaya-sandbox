@@ -10,7 +10,7 @@ import { useThemeMode, type ThemeMode } from "./ThemeSwitcher";
 const MODES: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
   { value: "light", label: "Светлая", icon: Sun },
   { value: "dark", label: "Тёмная", icon: Moon },
-  { value: "system", label: "Как в системе", icon: Monitor },
+  { value: "system", label: "Системная", icon: Monitor },
 ];
 
 /** Мини-экран темы: .light / .dark принудительно задают переменные, независимо от текущей темы страницы. */
@@ -35,7 +35,7 @@ export const ThemePicker = ({ className, onPick }: { className?: string; onPick?
             <span className="relative flex h-16 overflow-hidden rounded-md ring-1 ring-border">
               {value === "system" ? (<><Mini theme="light" className="w-1/2 pr-0" /><Mini theme="dark" className="w-1/2 pl-0" /></>) : <Mini theme={value} className="w-full" />}
             </span>
-            <span className="flex items-center gap-1.5 px-1.5 text-sm font-medium"><Icon className="size-4 shrink-0 text-muted-foreground" /><span className="truncate">{label}</span></span>
+            <span className="flex items-center gap-1.5 px-1.5 text-sm font-medium"><Icon className="hidden size-4 shrink-0 text-muted-foreground sm:block" /><span className="truncate">{label}</span></span>
           </motion.button>
         );
       })}

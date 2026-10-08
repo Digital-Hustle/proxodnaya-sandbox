@@ -7,6 +7,7 @@ import { TrackIndicator, useTrackIndicator } from "./TrackIndicator";
 /**
  * Шапка как на sberbank.ru: белая пилюля 60 px с внутренним отступом 6 px, висит над мятным фоном.
  * Липнет с зазором сверху (без полос под вырезом), при прокрутке только усиливается тень — геометрия не меняется.
+ * transform-gpu — свой слой композиции: в iOS Safari липкий блок с backdrop-blur иначе подрагивает при инерционной прокрутке.
  */
 export const HeaderBar = ({ children, className, inner }: { children: React.ReactNode; className?: string; inner?: string }) => {
   const [scrolled, setScrolled] = useState(false);
@@ -17,7 +18,7 @@ export const HeaderBar = ({ children, className, inner }: { children: React.Reac
     return () => removeEventListener("scroll", on);
   }, []);
   return (
-    <header className={cn("pointer-events-none sticky top-0 z-nav px-2 pt-safe sm:px-6", className)}>
+    <header className={cn("pointer-events-none sticky top-0 z-nav transform-gpu px-2 pt-safe sm:px-6", className)}>
       <div
         className={cn("pointer-events-auto mx-auto mt-2 flex h-15 max-w-7xl items-center gap-2 rounded-lg bg-card/90 p-1.5 backdrop-blur-xl transition-shadow duration-base sm:mt-3 sm:gap-3", scrolled ? "shadow-float" : "shadow-card", inner)}>
         {children}

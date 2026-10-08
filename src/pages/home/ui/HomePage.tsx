@@ -62,7 +62,7 @@ export const HomePage = () => {
   ];
 
   return (
-    <div className="relative isolate min-h-dvh overflow-x-clip">
+    <div className="relative isolate min-h-svh overflow-x-clip">
       <HeaderBar inner="max-w-6xl">
         <Logo className="px-1.5" />
         <nav aria-label="Разделы" className="ml-auto hidden items-center gap-1 md:flex">

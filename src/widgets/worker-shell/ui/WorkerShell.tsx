@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, Navigate, useLocation, Link } from "react-router";
 import { motion } from "motion/react";
-import { QrCode, History, CalendarDays } from "lucide-react";
+import { QrCode, History, CalendarDays, UserRound } from "lucide-react";
 import { loadKey, cn, type StoredKey } from "@/shared/lib";
 import { Logo, OfflineBanner, Skeleton, PreferencesButton, InstallButton, HeaderBar, TrackIndicator, useTrackIndicator } from "@/shared/ui";
 import { routes } from "@/shared/const/router";
@@ -11,6 +11,7 @@ const TABS = [
   { to: routes.worker, label: "Пропуск", icon: QrCode, end: true },
   { to: routes.workerHistory, label: "История", icon: History },
   { to: routes.workerShifts, label: "Смены", icon: CalendarDays },
+  { to: routes.workerProfile, label: "Профиль", icon: UserRound },
 ];
 
 export type WorkerCtx = { key: StoredKey };
@@ -23,11 +24,11 @@ export const WorkerShell = () => {
   useEffect(() => { loadKey("phone").then((k) => setKey(k ?? null)).catch(() => setKey(null)); }, [loc.pathname]);
   if (key === null) return <Navigate to={routes.workerActivate + loc.search} replace />;
   return (
-    <div className="relative isolate min-h-dvh text-foreground">
+    <div className="relative isolate min-h-svh text-foreground">
       {/* Та же шапка-пилюля, что в кабинете руководителя: знак слева, действия справа, одинаковые отступы. */}
       <HeaderBar inner="max-w-lg">
         <Link to={routes.home} className="min-w-0 shrink-0 rounded-md px-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"><Logo sub="сотрудник" /></Link>
-        <div className="ml-auto flex shrink-0 items-center gap-1.5"><InstallButton /><PreferencesButton /></div>
+        <div className="ml-auto flex shrink-0 items-center gap-1.5"><InstallButton className="hidden sm:inline-flex" /><PreferencesButton /></div>
       </HeaderBar>
       <OfflineBanner text="Нет сети. QR-пропуск работает офлайн" />
       <div className="mx-auto w-full max-w-lg px-4 pb-nav pt-6 sm:px-6 sm:pt-8">

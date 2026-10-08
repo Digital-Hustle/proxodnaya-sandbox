@@ -252,6 +252,7 @@ export const motion = {
     out: [0.22, 1, 0.36, 1],
     in: [0.4, 0, 1, 1],
     inOut: [0.65, 0, 0.35, 1],
+    linear: [0, 0, 1, 1], // таймеры и полосы отсчёта
   },
   duration: {
     instant: 0.12,
