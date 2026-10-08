@@ -1,10 +1,13 @@
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
 import { motion } from "motion/react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Area, AreaChart } from "recharts";
 import { Info } from "lucide-react";
 import { useDb, dailyStats, lastDays, loadByHour, refusalsByCode, unclosedIntervals, presenceTtlHours, REASONS } from "@/shared/api";
-import { Card, CardHeader, CardTitle, Dialog, Segmented, Button, AnimatedNumber, PageHeader, Avatar, Status } from "@/shared/ui";
-import { atTime, cn, dateRu, hhmm, plural } from "@/shared/lib";
+import { Card, CardHeader, CardTitle, Dialog, DateRangePicker, Button, AnimatedNumber, PageHeader, Avatar, Status } from "@/shared/ui";
+import { atTime, cn, dateRu, hhmm, plural, todayKey } from "@/shared/lib";
+
+const span = (from: string, to: string) => { const out: string[] = []; const [y, m, d] = from.split("-").map(Number); for (let x = new Date(y, m - 1, d); todayKey(x) <= to && out.length < 93; x.setDate(x.getDate() + 1)) out.push(todayKey(x)); return out; };
 import { cssVar } from "@/shared/config/tokens";
 import { fadeUp, stagger, spring, lift } from "@/shared/config/motion";
 
@@ -27,15 +30,20 @@ const Legend = ({ items }: { items: [string, string][] }) => (
 
 export const AnalyticsPage = () => {
   const db = useDb();
-  const [days, setDays] = useState<"7" | "14">("7");
+  const [q, setQ] = useSearchParams();
+  const def = lastDays(7);
+  const period = { from: q.get("from") ?? def[0], to: q.get("to") ?? def[6] };
+  const setPeriod = (r: { from: string; to: string }) => setQ((p) => { p.set("from", r.from); p.set("to", r.to); return p; }, { replace: true });
+  const today = todayKey();
   const [how, setHow] = useState(false);
-  const range = useMemo(() => lastDays(Number(days)), [days]);
+  const range = useMemo(() => span(period.from, period.to), [period.from, period.to]);
+  const toTs = atTime(period.to, "23:59") + 60000;
   const from = atTime(range[0], "00:00");
   const stats = useMemo(() => dailyStats(db, range).map((d) => ({ ...d, label: d.day.slice(8) + "." + d.day.slice(5, 7) })), [db, range]);
-  const load = useMemo(() => loadByHour(db, from).filter((h) => h.hour >= 5 && h.hour <= 23), [db, from]);
-  const refusals = useMemo(() => refusalsByCode(db, from).map((r) => ({ ...r, name: REASONS[r.code].message })).sort((a, b) => b.count - a.count), [db, from]);
+  const load = useMemo(() => loadByHour({ ...db, attempts: db.attempts.filter((a) => a.ts < toTs) }, from).filter((h) => h.hour >= 5 && h.hour <= 23), [db, from, toTs]);
+  const refusals = useMemo(() => refusalsByCode({ ...db, attempts: db.attempts.filter((a) => a.ts < toTs) }, from).map((r) => ({ ...r, name: REASONS[r.code].message })).sort((a, b) => b.count - a.count), [db, from, toTs]);
   const maxRef = Math.max(1, ...refusals.map((r) => r.count));
-  const unclosed = useMemo(() => unclosedIntervals(db).filter((i) => i.start >= from), [db, from]);
+  const unclosed = useMemo(() => unclosedIntervals(db).filter((i) => i.start >= from && i.start < toTs), [db, from, toTs]);
   const ttl = presenceTtlHours(db);
   const who = (id: string) => db.workers.find((w) => w.id === id);
   const total = stats.reduce((s, d) => s + d.attempts, 0);
@@ -52,7 +60,12 @@ export const AnalyticsPage = () => {
   return (
     <div>
       <PageHeader title="Аналитика" sub="Показатели рассчитаны по событиям журнала проходов"
-        actions={<><Segmented value={days} onChange={setDays} label="Период" options={[{ value: "7", label: "7 дней" }, { value: "14", label: "14 дней" }]} /><Button variant="quiet" size="sm" onClick={() => setHow(true)}><Info />Как посчитано</Button></>} />
+        actions={<><DateRangePicker value={period} onChange={setPeriod} max={today} aria-label="Период" className="h-control-sm w-56 text-sm" presets={[
+          { label: "Сегодня", range: { from: today, to: today } },
+          { label: "7 дней", range: { from: def[0], to: today } },
+          { label: "14 дней", range: { from: lastDays(14)[0], to: today } },
+          { label: "30 дней", range: { from: lastDays(30)[0], to: today } },
+        ]} /><Button variant="quiet" size="sm" onClick={() => setHow(true)}><Info />Как посчитано</Button></>} />
       <motion.div variants={fadeUp} initial="hidden" animate="show"><Card className="mb-3 sm:mb-4">
         <dl className="grid grid-cols-2 lg:grid-cols-4">
           {kpi.map(({ label, value, fmt }, i) => (

@@ -1,7 +1,7 @@
 import { cloneElement, forwardRef, isValidElement, useId } from "react";
 import { cn } from "@/shared/lib";
 
-export const inputClass = "h-control-md w-full min-w-0 rounded-md border border-input bg-card px-3.5 text-base text-foreground outline-none transition-[border-color,box-shadow] duration-fast placeholder:text-subtle-foreground hover:border-border-strong focus:border-ring focus:ring-4 focus:ring-ring/15 disabled:opacity-50 aria-invalid:border-danger aria-invalid:ring-danger/15 sm:text-sm";
+export const inputClass = "h-control-md w-full min-w-0 text-ellipsis rounded-md border border-input bg-card px-3.5 text-base text-foreground outline-none transition-[border-color,box-shadow] duration-fast placeholder:text-subtle-foreground hover:border-border-strong focus:border-ring focus:ring-4 focus:ring-ring/15 disabled:opacity-50 aria-invalid:border-danger aria-invalid:ring-danger/15 sm:text-sm";
 
 export const Input = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { icon?: React.ReactNode }>(({ className, icon, ...p }, ref) =>
   icon ? (

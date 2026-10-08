@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Check, ArrowLeft, ArrowRight, Timer } from "lucide-react";
 import { api, useDb, type Worker } from "@/shared/api";
 import { Button, Card, Field, Input, Select, toast, PageHeader, Status } from "@/shared/ui";
+import { TimePicker } from "@/shared/ui";
 import { cn, todayKey, hhmm } from "@/shared/lib";
 import { useNow } from "@/shared/hooks";
 import { routes } from "@/shared/const/router";
@@ -48,7 +49,7 @@ export const NewPersonPage = () => {
   return (
     <div className="mx-auto max-w-2xl">
       <PageHeader title="Новый сотрудник" sub="Профиль, фото, смена и приглашение для активации пропуска"
-        actions={<Status tone={elapsed <= 120 ? "success" : "warning"} className="h-8 px-3 text-sm"><Timer /><span className="tabular-nums">{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}</span><span className="opacity-70">/ цель 2:00</span></Status>} />
+        actions={<Status tone={elapsed <= 120 ? "success" : "warning"} className="h-8 px-3 text-sm" title="Время заведения: по условиям кейса (Д9) сотрудник должен быть заведён и пройти за 2 минуты"><Timer /><span className="tabular-nums">{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}</span><span className="opacity-70">из 2:00</span></Status>} />
 
       <ol className="mb-4 grid grid-cols-4 gap-2 sm:mb-5" aria-label="Шаги">
         {STEPS.map((s, i) => (
@@ -95,8 +96,8 @@ export const NewPersonPage = () => {
                 <div className="flex flex-col gap-5">
                   <p className="text-sm text-muted-foreground">Смена на сегодня. Без неё киоск не допустит сотрудника.</p>
                   <div className="grid grid-cols-2 gap-3 sm:gap-5">
-                    <Field label="Начало"><Input type="time" value={shift.start} onChange={(e) => setShift((s) => ({ ...s, start: e.target.value }))} /></Field>
-                    <Field label="Конец" error={shift.start >= shift.end ? "Позже начала" : null}><Input type="time" value={shift.end} onChange={(e) => setShift((s) => ({ ...s, end: e.target.value }))} /></Field>
+                    <Field label="Начало"><TimePicker value={shift.start} onChange={(v) => setShift((s) => ({ ...s, start: v }))} /></Field>
+                    <Field label="Конец" error={shift.start >= shift.end ? "Конец смены должен быть позже начала" : null}><TimePicker value={shift.end} onChange={(v) => setShift((s) => ({ ...s, end: v }))} /></Field>
                   </div>
                 </div>
               )}

@@ -9,6 +9,14 @@ import "./styles/index.css";
 applyStoredTheme();
 prefetchRoutes();
 
+// Заставка из index.html: плавно гасим после первой отрисовки приложения
+requestAnimationFrame(() => requestAnimationFrame(() => {
+  const s = document.getElementById("splash");
+  if (!s) return;
+  s.classList.add("out");
+  s.addEventListener("transitionend", () => s.remove(), { once: true });
+}));
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <MotionConfig reducedMotion="user">

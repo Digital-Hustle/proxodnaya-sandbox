@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
 import { motion } from "motion/react";
-import { ChevronLeft, ChevronRight, Trash2, Pencil } from "lucide-react";
+import { ChevronLeft, ChevronRight, Trash2, Pencil, CalendarRange } from "lucide-react";
 import { api, useDb, buildIntervals } from "@/shared/api";
-import { Avatar, Button, Card, Dialog, Field, Input, Select, toast, PageHeader } from "@/shared/ui";
+import { Avatar, Button, Card, Dialog, Field, Select, toast, PageHeader } from "@/shared/ui";
+import { TimePicker, DatePicker } from "@/shared/ui";
+import { ScheduleDialog } from "./ScheduleDialog";
 import { atTime, todayKey, durationRu, cn } from "@/shared/lib";
 import { useNow } from "@/shared/hooks";
 import { spring, fadeUp, stagger } from "@/shared/config/motion";
@@ -29,6 +31,7 @@ export const ShiftsPage = () => {
   const db = useDb();
   const now = useNow(60000);
   const [day, setDay] = useState(todayKey());
+  const [sched, setSched] = useState(false);
   const [edit, setEdit] = useState<{ workerId: string; start: string; end: string } | null>(null);
   const shift = (d: number) => { const x = new Date(atTime(day, "12:00")); x.setDate(x.getDate() + d); setDay(todayKey(x)); };
   const intervals = useMemo(() => buildIntervals(db), [db]);
@@ -39,10 +42,13 @@ export const ShiftsPage = () => {
     <div>
       <PageHeader title="Смены" sub="Пунктиром показана плановая смена, зелёной полосой — фактическое присутствие. Нажмите на строку, чтобы изменить смену"
         actions={
-          <div className="flex items-center gap-1 rounded-md bg-card p-1 shadow-xs">
-            <Button variant="quiet" size="icon-sm" aria-label="Предыдущий день" onClick={() => shift(-1)}><ChevronLeft /></Button>
-            <span className="min-w-36 px-2 text-center text-sm font-medium first-letter:uppercase">{day === todayKey() ? "Сегодня" : dayTitle(day)}</span>
-            <Button variant="quiet" size="icon-sm" aria-label="Следующий день" onClick={() => shift(1)}><ChevronRight /></Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1 rounded-md bg-card p-1 shadow-xs">
+              <Button variant="quiet" size="icon-sm" aria-label="Предыдущий день" onClick={() => shift(-1)}><ChevronLeft /></Button>
+              <DatePicker value={day} onChange={setDay} aria-label="День" className="h-control-sm w-44 border-transparent bg-transparent text-sm shadow-none" />
+              <Button variant="quiet" size="icon-sm" aria-label="Следующий день" onClick={() => shift(1)}><ChevronRight /></Button>
+            </div>
+            <Button onClick={() => setSched(true)}><CalendarRange />Назначить график</Button>
           </div>
         } />
       <motion.div variants={fadeUp} initial="hidden" animate="show"><Card className="overflow-hidden">
@@ -68,6 +74,7 @@ export const ShiftsPage = () => {
           ))}
         </motion.ul>
       </Card></motion.div>
+      <ScheduleDialog open={sched} onClose={() => setSched(false)} />
       <Dialog open={!!edit} onClose={() => setEdit(null)} title="Смена" description={dayTitle(day)}
         footer={edit && (<>
           {existing && <Button variant="danger-soft" className="sm:mr-auto" onClick={() => api.deleteShift(existing.id).then(() => { setEdit(null); toast.info("Смена удалена"); })}><Trash2 />Удалить</Button>}
@@ -77,8 +84,8 @@ export const ShiftsPage = () => {
           <div className="flex flex-col gap-5">
             <Field label="Сотрудник"><Select value={edit.workerId} onChange={(v) => setEdit({ ...edit, workerId: v })} options={db.workers.map((w) => ({ value: w.id, label: w.fullName, hint: w.position }))} /></Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Начало"><Input type="time" value={edit.start} onChange={(e) => setEdit({ ...edit, start: e.target.value })} /></Field>
-              <Field label="Конец" error={edit.start >= edit.end ? "Должен быть позже начала" : null}><Input type="time" value={edit.end} onChange={(e) => setEdit({ ...edit, end: e.target.value })} /></Field>
+              <Field label="Начало"><TimePicker value={edit.start} onChange={(v) => setEdit({ ...edit, start: v })} /></Field>
+              <Field label="Конец" error={edit.start >= edit.end ? "Должен быть позже начала" : null}><TimePicker value={edit.end} onChange={(v) => setEdit({ ...edit, end: v })} /></Field>
             </div>
           </div>
         )}

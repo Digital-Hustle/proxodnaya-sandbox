@@ -252,6 +252,19 @@ export const upsertShift = async (s: Omit<Shift, "id"> & { id?: string }) => {
   });
 };
 
+/** График: сотрудники × дни недели (0 = Пн) в периоде [from, to]. Существующие смены в эти дни заменяются. Возвращает число созданных смен. */
+export const assignSchedule = async (p: { workerIds: string[]; weekdays: number[]; from: string; to: string; start: string; end: string }) => {
+  await latency(120, 260);
+  const days: string[] = [];
+  const [y, m, dd] = p.from.split("-").map(Number);
+  for (let d = new Date(y, m - 1, dd); todayKey(d) <= p.to && days.length < 366; d.setDate(d.getDate() + 1)) if (p.weekdays.includes((d.getDay() + 6) % 7)) days.push(todayKey(d));
+  mutate((d) => {
+    d.shifts = d.shifts.filter((x) => !(p.workerIds.includes(x.workerId) && days.includes(x.day)));
+    for (const w of p.workerIds) for (const day of days) d.shifts.push({ id: randomId("s"), workerId: w, day, start: p.start, end: p.end });
+  });
+  return days.length * p.workerIds.length;
+};
+
 export const deleteShift = async (id: string) => { await latency(60, 150); mutate((d) => { d.shifts = d.shifts.filter((x) => x.id !== id); }); };
 
 /** ADR-037: режим КПП — авто (по присутствию) или фиксированное направление (отдельные турникеты входа/выхода). */

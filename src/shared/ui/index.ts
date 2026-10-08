@@ -22,3 +22,5 @@ export * from "./StyledQr";
 export * from "./Preferences";
 export * from "./HeaderBar";
 export * from "./TrackIndicator";
+export * from "./Popover";
+export * from "./DatePicker";
