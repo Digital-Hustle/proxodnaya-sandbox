@@ -1,0 +1,4 @@
+export { WorkerActivatePage } from "./ui/WorkerActivatePage";
+export { WorkerPassPage } from "./ui/WorkerPassPage";
+export { WorkerHistoryPage } from "./ui/WorkerHistoryPage";
+export { WorkerShiftsPage } from "./ui/WorkerShiftsPage";
