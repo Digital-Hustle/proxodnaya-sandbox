@@ -14,10 +14,11 @@ const shifts = () => import("@/pages/admin-shifts");
 const analytics = () => import("@/pages/admin-analytics");
 const assistant = () => import("@/pages/admin-assistant");
 const settings = () => import("@/pages/admin-settings");
+const terminals = () => import("@/pages/admin-terminals");
 
 /** Фоновая предзагрузка всех страниц после первого экрана: дальнейшие переходы мгновенные. */
 export const prefetchRoutes = () => {
-  const run = () => [kiosk, worker, dashboard, people, journal, shifts, analytics, assistant, settings].forEach((f) => { f().catch(() => {}); });
+  const run = () => [kiosk, worker, dashboard, people, journal, shifts, analytics, assistant, settings, terminals].forEach((f) => { f().catch(() => {}); });
   if ("requestIdleCallback" in window) requestIdleCallback(run); else setTimeout(run, 1);
 };
 
@@ -46,6 +47,7 @@ export const router = createHashRouter([
       { path: "analytics", lazy: async () => ({ Component: (await analytics()).AnalyticsPage }) },
       { path: "assistant", lazy: async () => ({ Component: (await assistant()).AssistantPage }) },
       { path: "settings", lazy: async () => ({ Component: (await settings()).SettingsPage }) },
+      { path: "terminals", lazy: async () => ({ Component: (await terminals()).TerminalsPage }) },
     ],
   },
   { path: "*", element: <Navigate to="/" replace /> },

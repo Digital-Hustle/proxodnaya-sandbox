@@ -14,7 +14,7 @@ export const ChallengePrompt = ({ challenge, name, progress }: { challenge: Chal
   return (
     <motion.div variants={popIn} initial="hidden" animate="show"
       className="flex w-full max-w-sm flex-col items-center gap-4 rounded-xl bg-popover/95 px-6 py-6 text-center text-popover-foreground shadow-pop backdrop-blur-md sm:gap-5 sm:px-8 sm:py-8">
-      <div className="text-sm text-muted-foreground sm:text-base">{name}, посмотрите в камеру</div>
+      <div className="text-sm text-muted-foreground sm:text-base">{name ? `${name}, посмотрите в камеру` : "Посмотрите в камеру"}</div>
       <motion.div animate={SWAY[challenge.kind]} transition={loop} className="flex size-16 items-center justify-center rounded-full bg-accent text-accent-foreground sm:size-20">
         <Icon className="size-8 sm:size-10" />
       </motion.div>

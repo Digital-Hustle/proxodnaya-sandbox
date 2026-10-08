@@ -7,7 +7,9 @@ import { cn } from "@/shared/lib";
 import { fadeUp, press, spring, stagger } from "@/shared/config/motion";
 import { LlmSettings } from "./LlmSettings";
 
-type Msg = { id: number; role: "user" | "assistant"; text: string; answer?: AssistantAnswer; error?: boolean };
+import { useChatHistory, type Msg } from "../model/history";
+
+const EMPTY: Msg[] = [];
 
 const SUGGEST = [
   { q: "Кто сейчас на объекте?", icon: Users },
@@ -27,8 +29,9 @@ const Table = ({ t }: { t: NonNullable<AssistantAnswer["table"]> }) => (
 );
 
 /** Чат помощника: лента сообщений по центру, поле ввода — плавающая пилюля внизу. Цифры — только из данных. */
-export const AssistantChat = ({ className }: { className?: string }) => {
-  const [msgs, setMsgs] = useState<Msg[]>([]);
+export const AssistantChat = ({ className, compact }: { className?: string; compact?: boolean }) => {
+  const msgs = useChatHistory((s) => s.sessions.find((x) => x.id === s.activeId)?.msgs ?? EMPTY);
+  const setMsgs = useChatHistory((s) => s.update);
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
   const [settings, setSettings] = useState(false);
@@ -54,26 +57,26 @@ export const AssistantChat = ({ className }: { className?: string }) => {
 
   return (
     <div className={cn("flex min-h-0 flex-col", className)}>
-      <div className="flex items-center gap-3 border-b border-border px-4 py-3 sm:px-5">
+      {!compact && <div className="flex items-center gap-3 border-b border-border px-4 py-3 sm:px-5">
         <LogoMark className="size-9" />
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold">Помощник руководителя</div>
           <div className="truncate text-xs text-muted-foreground">{llm ? `Модель ${llm.model}` : "Режим правил · без языковой модели"}</div>
         </div>
         <Button variant="ghost" size="sm" onClick={() => setSettings(true)}><Settings2 /><span className="hidden sm:inline">Модель</span></Button>
-      </div>
+      </div>}
 
       <div ref={scroller} className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
         {msgs.length === 0 ? (
           <motion.div variants={stagger(0.05)} initial="hidden" animate="show" className="mx-auto flex min-h-full max-w-3xl flex-col justify-center gap-6">
             <motion.div variants={fadeUp} className="flex flex-col gap-2">
               <h2 className="font-display text-2xl font-semibold tracking-display sm:text-3xl">Чем помочь?</h2>
-              <p className="hidden text-base text-muted-foreground sm:block">Задайте вопрос об обстановке, опозданиях, отказах или отработанных часах. Каждый ответ сопровождается таблицей и источниками.</p>
+              <p className={cn("hidden text-base text-muted-foreground", !compact && "sm:block")}>Задайте вопрос об обстановке, опозданиях, отказах или отработанных часах. Каждый ответ сопровождается таблицей и источниками.</p>
             </motion.div>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className={cn("grid gap-2", !compact && "sm:grid-cols-2")}>
               {SUGGEST.map(({ q: s, icon: Icon }, i) => (
                 <motion.button key={s} type="button" variants={fadeUp} {...press} onClick={() => send(s)}
-                  className={cn("flex min-h-control-lg items-center gap-3 rounded-md bg-muted px-3.5 py-3 text-left text-sm font-medium outline-none transition-colors duration-fast hover:bg-surface focus-visible:ring-2 focus-visible:ring-ring", i > 2 && "hidden sm:flex")}>
+                  className={cn("flex min-h-control-lg items-center gap-3 rounded-md bg-muted px-3.5 py-3 text-left text-sm font-medium outline-none transition-colors duration-fast hover:bg-surface focus-visible:ring-2 focus-visible:ring-ring", i > 2 && !compact && "hidden sm:flex")}>
                   <span className="flex size-8 shrink-0 items-center justify-center rounded-sm bg-card text-brand shadow-xs"><Icon className="size-4" /></span>{s}
                 </motion.button>
               ))}

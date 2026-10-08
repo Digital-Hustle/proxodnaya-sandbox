@@ -18,7 +18,7 @@ const Section = ({ title, text, children }: { title: string; text?: string; chil
 /** Пульт для проверки без второго телефона: «виртуальный телефон» сотрудника и типовые атаки. */
 export const DemoPanel = ({ checkpointId, open, onClose, onScan, onManual }: Props) => {
   const db = useDb();
-  const { photoAttack, setPhotoAttack, lastQr } = useKioskDemo();
+  const { photoAttack, setPhotoAttack, lastQr, faceWorkerId, setFaceWorker } = useKioskDemo();
   const people = db.workers.filter((w) => w.status === "active").slice(0, 8);
   const [manualWorker, setManualWorker] = useState(people[0]?.id ?? "");
   const [note, setNote] = useState("");
@@ -46,6 +46,10 @@ export const DemoPanel = ({ checkpointId, open, onClose, onScan, onManual }: Pro
               );
             })}
           </div>
+        </Section>
+        <Section title="Кто в кадре" text="Для режима «Сначала лицо»: в песочнице нет биометрии, поэтому человека в кадре задаёт пульт. Незнакомого человека терминал не пропустит и попросит QR">
+          <Select value={faceWorkerId ?? "none"} onChange={(v) => setFaceWorker(v === "none" ? null : v)} aria-label="Кто в кадре"
+            options={[{ value: "none", label: "Незнакомый человек", hint: "нет в базе" }, ...db.workers.map((w) => ({ value: w.id, label: w.fullName, hint: w.position }))]} />
         </Section>
         <Section title="Нарушения" text="Каждый сценарий завершается отказом с указанием причины">
           <div className="grid gap-2 sm:grid-cols-3">

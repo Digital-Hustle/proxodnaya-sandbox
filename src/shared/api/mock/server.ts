@@ -1,6 +1,6 @@
 // Мок-бэкенд в браузере. Решение о проходе принимается ЗДЕСЬ, а не в компонентах (как Д2 в продукте:
 // UI только показывает то, что вернул «сервер»).
-import type { Attempt, Challenge, Checkpoint, Db, DecisionResult, Device, Direction, FrameStat, ReasonCode, Shift, Worker } from "../types";
+import type { Attempt, Challenge, Checkpoint, Db, Kiosk, TerminalMode, DecisionResult, Device, Direction, FrameStat, ReasonCode, Shift, Worker } from "../types";
 import { getDb, mutate, resetDb } from "./store";
 import { REASONS } from "./reasons";
 import { presenceNow, shiftFor } from "./derived";
@@ -75,6 +75,34 @@ const checkpointDefault = (db: Db, checkpointId: string): Direction => {
   return mode === "AUTO" ? "IN" : mode;
 };
 
+/** Правила допуска после идентификации — одни и те же для QR и для режима «Сначала лицо». null = нарушений нет. */
+/** Челлендж живости для режима «Сначала лицо»: выдаёт сервер, клиент его не выбирает. */
+export const faceChallenge = (): Challenge => ({ ...CHALLENGES[Math.floor(Math.random() * CHALLENGES.length)], timeoutMs: m.kiosk.challengeTimeoutMs });
+
+const checkRules = (db: Db, worker: Worker, checkpointId: string, resolved: DirectionResolution): ReasonCode | null => {
+  const direction = resolved.direction;
+  if (worker.status === "blocked") return "WORKER_BLOCKED";
+  if (recentFailures(worker.id) >= 3) return "TEMP_LOCKED";
+  if (worker.permitUntil < todayKey()) return "PERMIT_EXPIRED";
+  const zoneId = db.checkpoints.find((c) => c.id === checkpointId)?.zoneId;
+  if (zoneId && !worker.zoneIds.includes(zoneId)) return "NO_ZONE_PERMIT";
+
+  if (resolved.repeat) return "REPEAT_SCAN";
+  const inside = presenceNow(db).some((p) => p.workerId === worker.id);
+  if (direction === "IN") {
+    if (db.settings.requireShift) {
+      const sh = shiftFor(db, worker.id);
+      if (!sh) return "NO_SHIFT";
+      const g = db.settings.shiftGraceMin * 60000;
+      const now = Date.now();
+      if (now < atTime(sh.day, sh.start) - g || now > atTime(sh.day, sh.end)) return "OUTSIDE_SHIFT_WINDOW";
+    }
+    // В AUTO «внутри» уже дало бы OUT, а забытый выход старше presenceTtlHours — легальный новый вход.
+    if (inside && db.checkpoints.find((c) => c.id === checkpointId)?.mode === "IN") return "ALREADY_INSIDE";
+  } else if (!inside) return "NOT_INSIDE";
+  return null;
+};
+
 export const kioskScan = async (raw: string, checkpointId: string): Promise<ScanResult> => {
   await latency();
   const db = getDb();
@@ -110,25 +138,8 @@ export const kioskScan = async (raw: string, checkpointId: string): Promise<Scan
     });
   }
 
-  if (worker.status === "blocked") return { kind: "decision", result: deny("WORKER_BLOCKED", wb) };
-  if (recentFailures(worker.id) >= 3) return { kind: "decision", result: deny("TEMP_LOCKED", wb) };
-  if (worker.permitUntil < todayKey()) return { kind: "decision", result: deny("PERMIT_EXPIRED", wb) };
-  const zoneId = db.checkpoints.find((c) => c.id === checkpointId)?.zoneId;
-  if (zoneId && !worker.zoneIds.includes(zoneId)) return { kind: "decision", result: deny("NO_ZONE_PERMIT", wb) };
-
-  if (resolved.repeat) return { kind: "decision", result: deny("REPEAT_SCAN", wb) };
-  const inside = presenceNow(db).some((p) => p.workerId === worker.id);
-  if (direction === "IN") {
-    if (db.settings.requireShift) {
-      const sh = shiftFor(db, worker.id);
-      if (!sh) return { kind: "decision", result: deny("NO_SHIFT", wb) };
-      const g = db.settings.shiftGraceMin * 60000;
-      const now = Date.now();
-      if (now < atTime(sh.day, sh.start) - g || now > atTime(sh.day, sh.end)) return { kind: "decision", result: deny("OUTSIDE_SHIFT_WINDOW", wb) };
-    }
-    // В AUTO «внутри» уже дало бы OUT, а забытый выход старше presenceTtlHours — легальный новый вход.
-    if (inside && db.checkpoints.find((c) => c.id === checkpointId)?.mode === "IN") return { kind: "decision", result: deny("ALREADY_INSIDE", wb) };
-  } else if (!inside) return { kind: "decision", result: deny("NOT_INSIDE", wb) };
+  const rule = checkRules(db, worker, checkpointId, resolved);
+  if (rule) return { kind: "decision", result: deny(rule, wb) };
 
   const c = CHALLENGES[Math.floor(Math.random() * CHALLENGES.length)];
   const token = randomId("ch", 12);
@@ -154,6 +165,70 @@ export const kioskFrames = async (token: string, frames: FrameStat[]): Promise<D
   const score = demoFace === "match" ? 0.78 + Math.random() * 0.17 : 0.18 + Math.random() * 0.2;
   if (score < faceThreshold) return deny("FACE_MISMATCH", { ...base, score });
   return record({ ...base, decision: "ALLOW", code: "OK", source: "QR", score });
+};
+
+const livenessCode = (frames: FrameStat[]): ReasonCode | null => {
+  if (frames.length < 3) return "FACE_NOT_FOUND";
+  const avg = (k: keyof FrameStat) => frames.reduce((s, f) => s + f[k], 0) / frames.length;
+  if (avg("brightness") < 0.08 || avg("contrast") < 0.03) return "FACE_LOW_QUALITY";
+  if (Math.max(...frames.map((f) => f.motion)) < 0.012) return "LIVENESS_FAILED";
+  return null;
+};
+
+/** ADR-038: для поиска по всей базе (1:N) порог строже, чем для сверки 1:1 по QR. */
+export const FACE_FIRST_MARGIN = 0.1;
+
+/**
+ * Режим «Сначала лицо»: кадры челленджа → идентификация на сервере → те же правила. Решение принимает сервер.
+ * Не узнали (ниже строгого порога) — FACE_NOT_FOUND, киоск предлагает QR. В песочнице нет биометрии: «кто в кадре» задаёт демо-пульт.
+ */
+export const kioskIdentify = async (checkpointId: string, frames: FrameStat[], candidateId: string | null): Promise<DecisionResult> => {
+  await latency(300, 700);
+  const db = getDb();
+  const base = { checkpointId, direction: checkpointDefault(db, checkpointId) };
+  const live = livenessCode(frames);
+  if (live) return deny(live, base);
+  const worker = candidateId ? db.workers.find((w) => w.id === candidateId) : undefined;
+  const th = Math.min(0.95, db.settings.faceThreshold + FACE_FIRST_MARGIN);
+  const score = worker && db.settings.demoFace === "match" ? 0.86 + Math.random() * 0.1 : 0.2 + Math.random() * 0.2;
+  if (!worker || score < th) return deny("FACE_NOT_FOUND", { ...base, score });
+  const resolved = resolveDirection(db, worker.id, checkpointId);
+  const wb = { checkpointId, direction: resolved.direction, workerId: worker.id };
+  const rule = checkRules(db, worker, checkpointId, resolved);
+  if (rule) return deny(rule, wb);
+  return record({ ...wb, decision: "ALLOW", code: "OK", source: "FACE", score });
+};
+
+// ——— Терминалы (ADR-038) ———
+export const KIOSK_ONLINE_MS = 45000;
+export const terminalModeOf = (db: Db, kiosk?: Kiosk): TerminalMode => kiosk?.mode ?? db.settings.terminalMode ?? "QR_FACE";
+
+/** Киоск сообщает о себе (при старте и каждые 30 с). Неизвестный — получает код сопряжения. */
+export const kioskHello = (id: string) => mutate((d) => {
+  d.kiosks ??= [];
+  const k = d.kiosks.find((x) => x.id === id);
+  if (k) k.lastSeen = Date.now();
+  else d.kiosks.push({ id, pairCode: inviteCode(), createdAt: Date.now(), lastSeen: Date.now() });
+});
+
+export const pairKiosk = async (code: string, p: { name: string; checkpointId: string; mode?: TerminalMode }) => {
+  await latency(200, 450);
+  const c = code.trim().toUpperCase();
+  const k = (getDb().kiosks ?? []).find((x) => x.pairCode === c && !x.pairedAt);
+  if (!k) throw new Error("Код не найден. Проверьте 6 символов на экране терминала.");
+  mutate((d) => { const x = d.kiosks?.find((v) => v.id === k.id); if (x) Object.assign(x, { name: p.name.trim() || "Терминал", checkpointId: p.checkpointId, mode: p.mode, pairedAt: Date.now() }); });
+  return k.id;
+};
+
+export const updateKiosk = async (id: string, patch: Partial<Pick<Kiosk, "name" | "checkpointId" | "mode">>) => {
+  await latency(60, 160);
+  mutate((d) => { const x = d.kiosks?.find((v) => v.id === id); if (x) Object.assign(x, patch); });
+};
+
+/** Отвязать: терминал сразу перестаёт пропускать и показывает новый код сопряжения. */
+export const unpairKiosk = async (id: string) => {
+  await latency(60, 160);
+  mutate((d) => { d.kiosks = (d.kiosks ?? []).filter((v) => v.id !== id); d.kiosks.push({ id, pairCode: inviteCode(), createdAt: Date.now(), lastSeen: Date.now() }); });
 };
 
 export const kioskManual = async (workerId: string, checkpointId: string, note: string) => {

@@ -100,7 +100,7 @@ export const createSeed = (): Db => {
   attempts.sort((a, b) => a.ts - b.ts);
   return {
     version: DB_VERSION,
-    workers, devices: [], zones, checkpoints, shifts, attempts, qrUses: [],
+    workers, devices: [], zones, checkpoints, shifts, attempts, qrUses: [], kiosks: [],
     settings: { faceThreshold: 0.6, qrToleranceSec: 45, shiftGraceMin: 60, requireShift: true, demoFace: "match" },
   };
 };

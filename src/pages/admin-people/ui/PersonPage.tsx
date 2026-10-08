@@ -56,7 +56,7 @@ export const PersonPage = () => {
               <div className="flex flex-col gap-4 p-4 sm:p-6">
                 <div className="flex flex-wrap gap-2">{w.zoneIds.map((z) => <Status key={z} tone="success">{db.zones.find((x) => x.id === z)?.name}</Status>)}</div>
                 <Field label="Инструктаж и медосмотр до"><DatePicker value={w.permitUntil} onChange={(v) => api.updateWorker(w.id, { permitUntil: v })} /></Field>
-                <div className="flex items-center justify-between gap-3 rounded-md bg-muted px-3 py-2.5 text-sm"><span className="text-muted-foreground">Смена сегодня</span><span className="font-medium tabular-nums">{sh ? `${sh.start}–${sh.end}` : "нет"}</span></div>
+                <div className="flex items-center justify-between gap-3 rounded-md bg-muted px-3 py-2.5 text-sm"><span className="text-muted-foreground">Смена сегодня</span><Link to={routes.adminShifts} className="font-medium tabular-nums underline-offset-4 hover:underline">{sh ? `${sh.start}–${sh.end}` : "нет · назначить"}</Link></div>
               </div>
             </Card>
           </motion.div>

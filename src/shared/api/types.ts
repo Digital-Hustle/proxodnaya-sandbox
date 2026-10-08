@@ -37,7 +37,8 @@ export type Attempt = {
   direction: Direction;
   decision: Decision;
   code: ReasonCode;
-  source: "QR" | "MANUAL";
+  /** FACE — проход в режиме «Сначала лицо» (ADR-038). */
+  source: "QR" | "MANUAL" | "FACE";
   score?: number;
   note?: string;
 };
@@ -69,7 +70,32 @@ export type Settings = {
   repeatScanCooldownSec?: number;
   /** ADR-037: незакрытый вход старше этого срока считается «забытым выходом» — следующий скан снова вход. */
   presenceTtlHours?: number;
+  /** ADR-038: логика терминала по умолчанию. Киоск может переопределить. */
+  terminalMode?: TerminalMode;
+  /** ADR-038: что делает киоск без связи с сервером. Автоматического пропуска офлайн нет ни в одном режиме. */
+  offlinePolicy?: OfflinePolicy;
 };
+
+/** ADR-038. QR_FACE — QR + сверка лица 1:1 (по умолчанию). FACE_FIRST — идентификация по лицу 1:N на сервере, QR — запасной путь. */
+export type TerminalMode = "QR_FACE" | "FACE_FIRST";
+/** GUARD — без связи пропускает только охранник (MANUAL, с причиной). CLOSED — проход закрыт до восстановления связи. */
+export type OfflinePolicy = "GUARD" | "CLOSED";
+
+/** Терминал (киоск). Пока не сопряжён с проходной в админке — показывает код сопряжения и никого не пропускает. */
+export type Kiosk = {
+  id: string;
+  pairCode: string;
+  name?: string;
+  checkpointId?: string;
+  /** Переопределение Settings.terminalMode для этого терминала. */
+  mode?: TerminalMode;
+  pairedAt?: number;
+  lastSeen: number;
+  createdAt: number;
+};
+
+/** Роли панели (FR-60) + инженер терминалов. */
+export type Role = "ADMIN" | "SECURITY_OFFICER" | "MANAGER" | "INSTALLER" | "GUARD";
 
 export type Db = {
   version: number;
@@ -81,6 +107,8 @@ export type Db = {
   attempts: Attempt[];
   qrUses: string[];
   settings: Settings;
+  /** ADR-038: сопряжённые и ожидающие терминалы. Необязательно — старые базы без поля. */
+  kiosks?: Kiosk[];
 };
 
 export type Interval = { workerId: string; zoneId: string; start: number; end?: number };

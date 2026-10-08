@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Camera, CameraOff, QrCode, ScanFace } from "lucide-react";
-import { api, type Challenge, type DecisionResult } from "@/shared/api";
+import { api, type Challenge, type DecisionResult, type TerminalMode } from "@/shared/api";
 import { useCamera, useMotionDetect } from "@/shared/hooks";
 import { Aurora, Button, Spinner } from "@/shared/ui";
 import { cn } from "@/shared/lib";
@@ -23,7 +23,8 @@ const CORNERS = ["left-0 top-0 rounded-tl-lg border-l-4 border-t-4", "right-0 to
 const sweep = { duration: duration.loop, repeat: Infinity, ease: ease.inOut } as const;
 
 /** Терминал КПП: только сканер. Направление (вход/выход) определяет сервер — ADR-037. */
-export const KioskTerminal = ({ checkpointId, demoOpen, setDemoOpen }: { checkpointId: string; demoOpen: boolean; setDemoOpen: (v: boolean) => void }) => {
+export const KioskTerminal = ({ checkpointId, mode = "QR_FACE", demoOpen, setDemoOpen }: { checkpointId: string; mode?: TerminalMode; demoOpen: boolean; setDemoOpen: (v: boolean) => void }) => {
+  const faceFirst = mode === "FACE_FIRST";
   const cam = useCamera("user");
   const [state, setState] = useState<State>({ kind: "idle" });
   const [noCamera, setNoCamera] = useState(false);
@@ -54,6 +55,30 @@ export const KioskTerminal = ({ checkpointId, demoOpen, setDemoOpen }: { checkpo
     }
   }, [checkpointId, cameraOn, cam.videoRef, setLastQr]);
 
+  // Режим «Сначала лицо» (ADR-038): челлендж живости → сервер ищет человека по базе. Не узнал — просим QR (сканер работает всегда).
+  const runFace = useCallback(async () => {
+    const challenge = api.faceChallenge();
+    setState({ kind: "challenge", challenge, name: "", progress: 0 });
+    const started = Date.now();
+    const progressId = setInterval(() => setState((s) => (s.kind === "challenge" ? { ...s, progress: Math.min(1, (Date.now() - started) / CAPTURE_MS) } : s)), 100);
+    try {
+      const { photoAttack: photo, faceWorkerId } = useKioskDemo.getState();
+      const frames = cameraOn && !photo ? await sampleFrames(cam.videoRef.current, CAPTURE_MS) : (await new Promise((r) => setTimeout(r, CAPTURE_MS)), syntheticFrames(!photo));
+      setState({ kind: "deciding" });
+      const r = await api.kioskIdentify(checkpointId, frames, faceWorkerId);
+      setState({ kind: "result", result: r.code === "FACE_NOT_FOUND" ? { ...r, message: "Не удалось узнать", hint: "Покажите QR-пропуск — сверим лицо по нему" } : r });
+    } catch {
+      setState({ kind: "result", result: { attemptId: "-", decision: "ERROR", code: "SYSTEM_ERROR", message: "Сервис недоступен", hint: "Обратитесь к сотруднику охраны", direction: "IN", ts: Date.now() } });
+    } finally { clearInterval(progressId); }
+  }, [checkpointId, cameraOn, cam.videoRef]);
+
+  // Автозапуск: человек подошёл и стоит перед камерой ~1 с.
+  useEffect(() => {
+    if (!faceFirst || !cameraOn || !moving || state.kind !== "idle" || demoOpen) return;
+    const t = setTimeout(runFace, 1000);
+    return () => clearTimeout(t);
+  }, [faceFirst, cameraOn, moving, state.kind, demoOpen, runFace]);
+
   useQrScanner(cam.videoRef, cameraOn && state.kind === "idle" && !demoOpen, handleQr);
 
   const manual = async (workerId: string, note: string) => setState({ kind: "result", result: await api.kioskManual(workerId, checkpointId, note) });
@@ -75,14 +100,15 @@ export const KioskTerminal = ({ checkpointId, demoOpen, setDemoOpen }: { checkpo
                 {!cameraOn && <div className="absolute inset-0 flex items-center justify-center text-white/50"><QrCode className="size-16 sm:size-20" strokeWidth={1.5} /></div>}
               </div>
               <div className="relative flex flex-col items-center gap-2">
-                <h1 className="text-balance font-display text-3xl font-semibold tracking-display text-white sm:text-4xl lg:text-5xl">Покажите QR-пропуск</h1>
-                <p className="text-balance text-base text-white/70 sm:text-lg">{cameraOn ? (moving ? "Вход или выход определится автоматически" : "Подойдите к камере и поднесите экран телефона") : cam.state === "denied" ? "Доступ к камере запрещён. Используйте демо-пропуск" : cam.state === "unavailable" ? "Камера не найдена. Используйте демо-пропуск" : "Камера отключена. Используйте демо-пропуск"}</p>
+                <h1 className="text-balance font-display text-3xl font-semibold tracking-display text-white sm:text-4xl lg:text-5xl">{faceFirst ? "Посмотрите в камеру" : "Покажите QR-пропуск"}</h1>
+                <p className="text-balance text-base text-white/70 sm:text-lg">{faceFirst && cameraOn ? "Или покажите QR-пропуск. Вход или выход определится автоматически" : cameraOn ? (moving ? "Вход или выход определится автоматически" : "Подойдите к камере и поднесите экран телефона") : cam.state === "denied" ? "Доступ к камере запрещён. Используйте демо-пропуск" : cam.state === "unavailable" ? "Камера не найдена. Используйте демо-пропуск" : "Камера отключена. Используйте демо-пропуск"}</p>
               </div>
               {!cameraOn && (
                 <div className="relative flex w-full max-w-sm flex-col gap-2 sm:w-auto sm:max-w-none sm:flex-row sm:gap-3">
                   {!noCamera && cam.state !== "on" && <Button variant="secondary" size="lg" onClick={() => cam.start()}><Camera />Включить камеру</Button>}
                   {noCamera && <Button variant="secondary" size="lg" onClick={() => setNoCamera(false)}><Camera />Вернуть камеру</Button>}
-                  <Button size="lg" onClick={() => setDemoOpen(true)}><ScanFace />Демо-пропуск</Button>
+                  {faceFirst && <Button variant="secondary" size="lg" onClick={runFace}><ScanFace />Пройти по лицу</Button>}
+                  <Button size="lg" onClick={() => setDemoOpen(true)}><QrCode />Демо-пропуск</Button>
                 </div>
               )}
             </motion.div>
@@ -103,7 +129,8 @@ export const KioskTerminal = ({ checkpointId, demoOpen, setDemoOpen }: { checkpo
 
       <AnimatePresence>
         {cameraOn && state.kind === "idle" && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }} transition={spring.soft} className="absolute inset-x-0 bottom-0 z-raised flex justify-center pb-4">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }} transition={spring.soft} className="absolute inset-x-0 bottom-0 z-raised flex justify-center gap-2 pb-4">
+            {faceFirst && <Button variant="secondary" size="sm" onClick={runFace} className="bg-black/40 text-white backdrop-blur-md hover:bg-black/55"><ScanFace />Пройти по лицу</Button>}
             <Button variant="secondary" size="sm" onClick={() => setNoCamera(true)} className="bg-black/40 text-white backdrop-blur-md hover:bg-black/55"><CameraOff />Без камеры</Button>
           </motion.div>
         )}

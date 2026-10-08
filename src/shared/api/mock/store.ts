@@ -13,7 +13,7 @@ const load = (): Db => {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const db = JSON.parse(raw) as Db;
-      if (db.version === DB_VERSION) return db;
+      if (db.version === DB_VERSION) return { ...db, kiosks: db.kiosks ?? [] }; // поля ADR-038 добавляются без сброса данных
     }
   } catch { /* битые данные — пересоздаём */ }
   const seed = createSeed();
