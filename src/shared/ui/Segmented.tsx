@@ -3,20 +3,28 @@ import { useId } from "react";
 import { cn } from "@/shared/lib";
 import { spring } from "@/shared/config/motion";
 
-type Opt<T extends string> = { value: T; label: React.ReactNode };
+type Opt<T extends string> = { value: T; label: React.ReactNode; icon?: React.ReactNode; title?: string };
 
-export function Segmented<T extends string>({ value, onChange, options, className, size = "md" }: { value: T; onChange: (v: T) => void; options: Opt<T>[]; className?: string; size?: "md" | "lg" }) {
+/** Сегменты как в шапке sberbank.ru: дорожка + белая «пилюля», которая перепрыгивает пружиной. Не переносится — скроллится. */
+export function Segmented<T extends string>({ value, onChange, options, className, size = "md", block, label }: {
+  value: T; onChange: (v: T) => void; options: Opt<T>[]; className?: string; size?: "sm" | "md" | "lg"; block?: boolean; label?: string;
+}) {
   const id = useId();
   return (
-    <div className={cn("inline-flex rounded-md bg-secondary p-1", className)} role="tablist">
-      {options.map((o) => (
-        <button key={o.value} type="button" role="tab" aria-selected={o.value === value} onClick={() => onChange(o.value)}
-          className={cn("relative flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-sm px-4 font-semibold transition-colors duration-fast [&_svg]:size-5",
-            size === "lg" ? "h-control-md text-lg" : "h-control-xs text-sm", o.value === value ? "text-foreground" : "text-muted-foreground hover:text-foreground")}>
-          {o.value === value && <motion.span layoutId={`seg-${id}`} transition={spring.snappy} className="absolute inset-0 rounded-sm bg-card shadow-sm" />}
-          <span className="relative z-base flex items-center gap-2">{o.label}</span>
-        </button>
-      ))}
+    <div className={cn("scrollbar-none max-w-full overflow-x-auto rounded-md bg-surface p-1", block ? "flex w-full" : "inline-flex", className)} role="tablist" aria-label={label}>
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <button key={o.value} type="button" role="tab" aria-selected={on} title={o.title} onClick={() => onChange(o.value)}
+            className={cn("relative flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-sm font-medium outline-none transition-colors duration-fast focus-visible:ring-2 focus-visible:ring-ring",
+              block && "flex-1",
+              size === "lg" ? "h-control-md px-5 text-base [&_svg]:size-5" : size === "sm" ? "h-7 px-2.5 text-xs [&_svg]:size-4" : "h-control-xs px-3.5 text-sm [&_svg]:size-4",
+              on ? "text-foreground" : "text-muted-foreground hover:text-foreground")}>
+            {on && <motion.span layoutId={`seg-${id}`} transition={spring.snappy} className="absolute inset-0 rounded-sm bg-card shadow-xs" />}
+            <span className="relative z-raised flex items-center gap-2">{o.icon}{o.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

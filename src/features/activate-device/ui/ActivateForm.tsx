@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
-import { KeyRound } from "lucide-react";
 import { api, DEMO_INVITES } from "@/shared/api";
 import { Button, Spinner, toast } from "@/shared/ui";
 import { cn } from "@/shared/lib";
-import { tween } from "@/shared/config/motion";
+import { spring, tween } from "@/shared/config/motion";
 
 const LEN = 6;
 
@@ -13,6 +12,7 @@ export const ActivateForm = ({ initialCode = "", payload, onDone }: { initialCod
   const [code, setCode] = useState(initialCode.toUpperCase().slice(0, LEN));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [focused, setFocused] = useState(false);
   const input = useRef<HTMLInputElement>(null);
 
   const submit = async (c = code) => {
@@ -31,23 +31,33 @@ export const ActivateForm = ({ initialCode = "", payload, onDone }: { initialCod
 
   return (
     <div className="flex w-full flex-col items-center gap-6">
-      <div className="flex size-16 items-center justify-center rounded-lg bg-accent text-accent-foreground"><KeyRound className="size-8" /></div>
       <div className="text-center">
-        <h1 className="font-display text-2xl font-semibold">Код приглашения</h1>
-        <p className="mt-2 text-base text-muted-foreground">6 символов из QR или от администратора</p>
+        <h1 className="font-display text-2xl font-medium tracking-display sm:text-3xl">Код приглашения</h1>
+        <p className="mt-2 text-balance text-base text-muted-foreground">6 символов — из QR или от прораба</p>
       </div>
-      <motion.button type="button" onClick={() => input.current?.focus()} animate={error ? { x: [0, -8, 8, -4, 4, 0] } : { x: 0 }} transition={tween.base} className="relative flex gap-2">
-        {Array.from({ length: LEN }, (_, i) => (
-          <span key={i} className={cn("flex h-control-xl w-12 items-center justify-center rounded-md border-2 bg-card font-display text-3xl font-semibold transition-colors duration-fast",
-            error ? "border-destructive" : i === code.length ? "border-ring" : code[i] ? "border-border" : "border-border/60")}>{code[i] ?? ""}</span>
-        ))}
+      <motion.div onClick={() => input.current?.focus()} animate={error ? { x: [0, -10, 10, -6, 6, 0] } : { x: 0 }} transition={tween.base} className="relative flex w-full max-w-xs gap-1.5 sm:gap-2">
+        {Array.from({ length: LEN }, (_, i) => {
+          const isCur = focused && i === Math.min(code.length, LEN - 1);
+          return (
+            <span key={i} className={cn("relative flex h-14 min-w-0 flex-1 items-center justify-center rounded-md border bg-card font-display text-2xl font-medium transition-colors duration-fast sm:h-16 sm:text-3xl",
+              error ? "border-danger" : isCur ? "border-ring ring-4 ring-ring/15" : code[i] ? "border-border-strong" : "border-input")}>
+              {code[i] && <motion.span initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={spring.pop}>{code[i]}</motion.span>}
+            </span>
+          );
+        })}
         <input ref={input} value={code} autoFocus inputMode="text" autoCapitalize="characters" autoComplete="one-time-code" aria-label="Код приглашения"
+          onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
           onChange={(e) => { const v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, LEN); setCode(v); setError(null); if (v.length === LEN) submit(v); }}
-          className="absolute inset-0 opacity-0" />
-      </motion.button>
-      {error && <p className="max-w-xs text-center text-sm text-destructive">{error}</p>}
-      <Button size="lg" className="w-full max-w-xs" disabled={code.length !== LEN || busy} onClick={() => submit()}>{busy ? <Spinner /> : "Привязать телефон"}</Button>
-      <div className="text-center text-xs text-muted-foreground">Демо-коды: {DEMO_INVITES.map((c) => <button key={c} className="mx-1 font-mono font-semibold text-accent-foreground underline" onClick={() => { setCode(c); submit(c); }}>{c}</button>)}</div>
+          className="absolute inset-0 text-base opacity-0" />
+      </motion.div>
+      {error && <p role="alert" className="max-w-xs text-center text-sm text-danger">{error}</p>}
+      <Button size="lg" block className="max-w-xs" disabled={code.length !== LEN || busy} onClick={() => submit()}>{busy ? <Spinner /> : "Привязать телефон"}</Button>
+      <div className="flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground">
+        <span>Демо-коды:</span>
+        {DEMO_INVITES.map((c) => (
+          <button key={c} type="button" className="min-h-control-xs rounded-sm bg-surface px-2.5 font-mono text-sm font-medium text-foreground transition-colors duration-fast hover:bg-surface-hover" onClick={() => { setCode(c); submit(c); }}>{c}</button>
+        ))}
+      </div>
     </div>
   );
 };

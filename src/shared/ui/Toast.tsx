@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { create } from "zustand";
 import { CheckCircle2, AlertTriangle, Info } from "lucide-react";
-import { spring } from "@/shared/config/motion";
+import { spring, tween } from "@/shared/config/motion";
 import { motion as m } from "@/shared/config/tokens";
 import { cn } from "@/shared/lib";
 
@@ -23,19 +23,23 @@ export const toast = {
 };
 
 const ICON = { success: CheckCircle2, error: AlertTriangle, info: Info };
+const TONE = { success: "text-success", error: "text-danger", info: "text-info" };
 
 export const Toaster = () => {
   const { list, drop } = useToasts();
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-0 z-toast flex flex-col items-center gap-2 p-4 pt-safe">
+    <div className="pointer-events-none fixed inset-x-0 top-0 z-toast flex flex-col items-center gap-2 px-4 pt-safe">
+      <div className="h-3" />
       <AnimatePresence>
         {list.map((t) => {
           const Icon = ICON[t.tone];
           return (
-            <motion.button key={t.id} layout onClick={() => drop(t.id)} initial={{ y: -24, opacity: 0, scale: 0.96 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: -12, opacity: 0 }} transition={spring.snappy}
-              className="pointer-events-auto flex max-w-md items-center gap-3 rounded-lg bg-popover px-4 py-3 text-left text-sm text-popover-foreground shadow-pop">
-              <Icon className={cn("size-5 shrink-0", t.tone === "success" ? "text-brand" : t.tone === "error" ? "text-destructive" : "text-info")} />
-              {t.text}
+            <motion.button key={t.id} type="button" layout onClick={() => drop(t.id)}
+              initial={{ y: -32, opacity: 0, scale: 0.9 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: -16, opacity: 0, scale: 0.96, transition: tween.exit }}
+              transition={{ ...spring.pop, opacity: tween.fast }}
+              className="pointer-events-auto flex min-h-control-md max-w-full items-center gap-3 rounded-full bg-inverse py-2.5 pl-4 pr-5 text-left text-sm font-medium text-inverse-foreground shadow-pop sm:max-w-md">
+              <Icon className={cn("size-5 shrink-0", TONE[t.tone])} />
+              <span className="min-w-0">{t.text}</span>
             </motion.button>
           );
         })}

@@ -1,9 +1,8 @@
 import { useMemo } from "react";
 import { useOutletContext } from "react-router";
 import { motion } from "motion/react";
-import { MapPin, Clock, Timer } from "lucide-react";
 import { useDb, presenceNow, shiftFor, workedMs, buildIntervals } from "@/shared/api";
-import { Avatar, Badge, Card } from "@/shared/ui";
+import { Avatar, Status, LogoMark } from "@/shared/ui";
 import { durationRu, hhmm, todayKey } from "@/shared/lib";
 import { useNow } from "@/shared/hooks";
 import { PassQr } from "@/features/show-pass-qr";
@@ -19,36 +18,41 @@ export const WorkerPassPage = () => {
   const sh = shiftFor(db, key.workerId);
   const worked = useMemo(() => workedMs(db, key.workerId, todayKey(), buildIntervals(db), now), [db, key.workerId, now]);
   if (!w) return <div className="py-10 text-center text-muted-foreground">Сотрудник не найден на этом устройстве</div>;
+  const info = [
+    { label: "Зона", value: pres ? db.zones.find((z) => z.id === pres.zoneId)?.name ?? "—" : "—" },
+    { label: "Смена", value: sh ? `${sh.start}–${sh.end}` : "нет" },
+    { label: "Сегодня", value: durationRu(worked) },
+  ];
   return (
-    <motion.div variants={stagger()} initial="hidden" animate="show" className="flex flex-col gap-4">
-      <motion.div variants={fadeUp} className="flex items-center gap-3 pt-2">
-        <Avatar name={w.fullName} photo={w.photo} className="size-12" />
-        <div className="min-w-0 flex-1">
-          <div className="truncate font-display text-lg font-semibold">{w.fullName}</div>
-          <div className="text-sm text-muted-foreground">{w.position} · {w.contractor}</div>
+    <motion.div variants={stagger()} initial="hidden" animate="show" className="flex flex-col gap-3">
+      {/* Пропуск как физическая карточка */}
+      <motion.article variants={fadeUp} className="overflow-hidden rounded-xl bg-card shadow-float">
+        <div className="h-1.5 bg-brand-gradient" />
+        <div className="flex items-center gap-3 px-5 pb-1 pt-4">
+          <LogoMark className="size-7" />
+          <div className="min-w-0 flex-1 text-xs text-muted-foreground"><div className="font-medium text-foreground">Пропуск на объект</div>ЖК «Северный» · корпус 2</div>
+          {pres ? <Status tone="success" dot>На объекте</Status> : <Status dot>Не на объекте</Status>}
         </div>
-        {pres ? <Badge tone="success">На объекте</Badge> : <Badge>Не на объекте</Badge>}
-      </motion.div>
-      <motion.div variants={fadeUp}>
-        <Card className="flex flex-col items-center gap-2 rounded-2xl px-4 py-6">
-          <PassQr size={292} />
-          <div className="text-center text-sm text-muted-foreground">Покажите код камере киоска. Скриншот не сработает — код живёт 30 секунд и одноразовый.</div>
-        </Card>
-      </motion.div>
-      <motion.div variants={fadeUp} className="grid grid-cols-3 gap-2">
-        {[
-          { icon: MapPin, label: "Зона", value: pres ? db.zones.find((z) => z.id === pres.zoneId)?.name : "—" },
-          { icon: Clock, label: "Смена", value: sh ? `${sh.start}–${sh.end}` : "нет" },
-          { icon: Timer, label: "Сегодня", value: durationRu(worked) },
-        ].map(({ icon: Icon, label, value }) => (
-          <Card key={label} className="flex flex-col gap-1 p-3">
-            <Icon className="size-4 text-brand" />
-            <div className="text-xs text-muted-foreground">{label}</div>
-            <div className="text-sm font-semibold">{value}</div>
-          </Card>
+        <div className="flex flex-col items-center px-5 pb-5 pt-4"><PassQr /></div>
+        <div className="flex items-center gap-3 border-t border-dashed border-border-strong px-5 py-4">
+          <Avatar name={w.fullName} photo={w.photo} className="size-12" />
+          <div className="min-w-0 flex-1">
+            <div className="truncate font-display text-lg font-medium tracking-display">{w.fullName}</div>
+            <div className="truncate text-sm text-muted-foreground">{w.position} · {w.contractor}</div>
+          </div>
+        </div>
+      </motion.article>
+      <motion.dl variants={fadeUp} className="grid grid-cols-3 rounded-lg bg-card shadow-card">
+        {info.map(({ label, value }, i) => (
+          <div key={label} className={`flex min-w-0 flex-col gap-0.5 px-3 py-3.5 sm:px-4 ${i ? "border-l border-border" : ""}`}>
+            <dt className="text-xs text-muted-foreground">{label}</dt>
+            <dd className="truncate text-sm font-medium tabular-nums">{value}</dd>
+          </div>
         ))}
-      </motion.div>
-      {pres && <motion.div variants={fadeUp} className="text-center text-xs text-muted-foreground">Вход в {hhmm(pres.since)}. Не забудьте отметить выход.</motion.div>}
+      </motion.dl>
+      <motion.p variants={fadeUp} className="px-2 text-center text-xs text-muted-foreground">
+        {pres ? `Вход в ${hhmm(pres.since)}. Не забудьте отметить выход.` : "Покажите код камере киоска. Скриншот не пройдёт — код живёт 30 секунд и одноразовый."}
+      </motion.p>
     </motion.div>
   );
 };

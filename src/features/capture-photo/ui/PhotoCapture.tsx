@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Camera, RefreshCw, Upload } from "lucide-react";
 import { useCamera } from "@/shared/hooks";
 import { Button } from "@/shared/ui";
-import { tween } from "@/shared/config/motion";
+import { popIn } from "@/shared/config/motion";
 
 const fileToDataUrl = (f: File, maxSide = 320) => new Promise<string>((resolve) => {
   const img = new Image();
@@ -24,27 +24,27 @@ export const PhotoCapture = ({ value, onChange }: { value?: string; onChange: (d
   useEffect(() => { if (!value) cam.start(); else cam.stop(); }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="relative aspect-square w-full max-w-xs self-center overflow-hidden rounded-xl bg-muted">
+    <div className="flex flex-col items-center gap-4">
+      <div className="relative aspect-square w-full max-w-64 overflow-hidden rounded-xl bg-surface">
         <video ref={cam.videoRef} playsInline muted className="size-full -scale-x-100 object-cover" />
         <AnimatePresence>
-          {value && <motion.img key="shot" src={value} initial={{ opacity: 0, scale: 1.05 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={tween.base} className="absolute inset-0 size-full object-cover" alt="Фото сотрудника" />}
+          {value && <motion.img key="shot" src={value} variants={popIn} initial="hidden" animate="show" exit="exit" className="absolute inset-0 size-full object-cover" alt="Фото сотрудника" />}
         </AnimatePresence>
         {!value && cam.state !== "on" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted-foreground">
-            <Camera className="size-8" />
+            <Camera className="size-7" />
             {cam.state === "starting" ? "Включаем камеру…" : cam.state === "denied" ? "Доступ к камере запрещён — загрузите фото файлом" : "Камера недоступна — загрузите фото файлом"}
           </div>
         )}
         {!value && cam.state === "on" && <div className="pointer-events-none absolute inset-8 rounded-full border-2 border-dashed border-white/70" />}
       </div>
-      <div className="flex flex-wrap justify-center gap-2">
+      <div className="grid w-full max-w-64 grid-cols-2 gap-2">
         {value ? (
-          <Button variant="outline" onClick={() => onChange(undefined)}><RefreshCw />Переснять</Button>
+          <Button variant="secondary" onClick={() => onChange(undefined)}><RefreshCw />Переснять</Button>
         ) : (
-          <Button disabled={cam.state !== "on"} onClick={() => onChange(cam.snapshot() ?? undefined)}><Camera />Сделать фото</Button>
+          <Button disabled={cam.state !== "on"} onClick={() => onChange(cam.snapshot() ?? undefined)}><Camera />Снять</Button>
         )}
-        <Button variant="ghost" onClick={() => file.current?.click()}><Upload />Файл</Button>
+        <Button variant="quiet" onClick={() => file.current?.click()}><Upload />Файл</Button>
         <input ref={file} type="file" accept="image/*" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) onChange(await fileToDataUrl(f)); }} />
       </div>
     </div>

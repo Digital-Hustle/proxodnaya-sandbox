@@ -1,22 +1,28 @@
-import { forwardRef } from "react";
+import { cloneElement, forwardRef, isValidElement, useId } from "react";
 import { cn } from "@/shared/lib";
 
-export const inputClass = "h-control-md w-full rounded-md border border-input bg-card px-4 text-base text-foreground placeholder:text-muted-foreground outline-none transition-colors duration-fast focus:border-ring focus:ring-2 focus:ring-ring/30 disabled:opacity-50";
+export const inputClass = "h-control-md w-full min-w-0 rounded-md border border-input bg-card px-3.5 text-base text-foreground outline-none transition-[border-color,box-shadow] duration-fast placeholder:text-subtle-foreground hover:border-border-strong focus:border-ring focus:ring-4 focus:ring-ring/15 disabled:opacity-50 aria-invalid:border-danger aria-invalid:ring-danger/15 sm:text-sm";
 
-export const Input = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(({ className, ...p }, ref) => (
-  <input ref={ref} className={cn(inputClass, className)} {...p} />
-));
+export const Input = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { icon?: React.ReactNode }>(({ className, icon, ...p }, ref) =>
+  icon ? (
+    <span className="relative flex min-w-0 items-center">
+      <span className="pointer-events-none absolute left-3.5 flex text-subtle-foreground [&_svg]:size-4.5">{icon}</span>
+      <input ref={ref} className={cn(inputClass, "pl-10", className)} {...p} />
+    </span>
+  ) : <input ref={ref} className={cn(inputClass, className)} {...p} />,
+);
 Input.displayName = "Input";
 
-export const Select = forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(({ className, ...p }, ref) => (
-  <select ref={ref} className={cn(inputClass, "appearance-none bg-no-repeat pr-10", className)} {...p} />
-));
-Select.displayName = "Select";
-
-export const Field = ({ label, hint, children, className }: { label: string; hint?: string; children: React.ReactNode; className?: string }) => (
-  <label className={cn("flex flex-col gap-2", className)}>
-    <span className="text-sm font-medium text-muted-foreground">{label}</span>
-    {children}
-    {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
-  </label>
-);
+/** Поле формы: подпись сверху, подсказка или ошибка под полем. Привязывает id/aria к ребёнку. */
+export const Field = ({ label, hint, error, children, className }: { label: string; hint?: React.ReactNode; error?: string | null; children: React.ReactElement<Record<string, unknown>>; className?: string }) => {
+  const id = useId();
+  const describedBy = error || hint ? `${id}-d` : undefined;
+  const child = isValidElement(children) ? cloneElement(children, { id, "aria-describedby": describedBy, "aria-invalid": error ? true : undefined }) : children;
+  return (
+    <div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
+      <label htmlFor={id} className="text-sm font-medium text-foreground">{label}</label>
+      {child}
+      {(error || hint) && <p id={describedBy} className={cn("text-xs", error ? "text-danger" : "text-muted-foreground")}>{error || hint}</p>}
+    </div>
+  );
+};

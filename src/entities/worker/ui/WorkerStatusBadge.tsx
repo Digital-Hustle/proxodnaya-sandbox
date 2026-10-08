@@ -1,10 +1,10 @@
-import { Badge } from "@/shared/ui";
+import { Status } from "@/shared/ui";
 import type { Worker } from "@/shared/api";
 import { todayKey } from "@/shared/lib";
 
 export const WorkerStatusBadge = ({ w, inside }: { w: Worker; inside?: boolean }) => {
-  if (w.status === "blocked") return <Badge tone="danger">Заблокирован</Badge>;
-  if (w.permitUntil < todayKey()) return <Badge tone="warning">Допуск просрочен</Badge>;
-  if (inside) return <Badge tone="success">На объекте</Badge>;
-  return <Badge>Не на объекте</Badge>;
+  if (w.status === "blocked") return <Status tone="danger" dot>Заблокирован</Status>;
+  if (w.permitUntil < todayKey()) return <Status tone="warning" dot>Допуск просрочен</Status>;
+  if (inside) return <Status tone="success" dot>На объекте</Status>;
+  return <Status dot>Не на объекте</Status>;
 };

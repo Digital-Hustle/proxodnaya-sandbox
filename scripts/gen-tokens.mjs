@@ -70,6 +70,7 @@ function css() {
   const darkVars = [
     ...Object.entries(D).map(([k, v]) => `--${k}: ${v};`),
     ...Object.entries(t.shadow.dark).map(([k, v]) => `--elev-${k}: ${v};`),
+    ...("glow-dark" in t.gradient ? ["--gradient-glow: var(--gradient-glow-dark);"] : []),
   ];
   const theme = [
     "/* дефолтные шкалы Tailwind выключены: доступны только токены ниже */",
@@ -87,6 +88,7 @@ function css() {
     `--default-transition-timing-function: ${bez(t.motion.ease.out)};`,
     `--color-white: ${t.palette.white};`, `--color-black: ${t.palette.black};`,
     ...Object.entries(t.palette.sber).map(([k, v]) => `--color-sber-${k}: ${v};`),
+    "--tracking-display: -0.02em;", "--tracking-caps: 0.06em;",
   ];
   const inline = [
     ...Object.keys(L).map((k) => `--color-${k}: var(--${k});`),
@@ -98,8 +100,12 @@ function css() {
     "@utility pt-safe {\n  padding-top: env(safe-area-inset-top);\n}",
     "@utility pb-safe {\n  padding-bottom: env(safe-area-inset-bottom);\n}",
     "@utility bg-brand-gradient {\n  background-image: var(--gradient-brand);\n}",
-    "@utility bg-brand-gradient-conic {\n  background-image: var(--gradient-brand-conic);\n}",
+    "@utility bg-glow {\n  background-image: var(--gradient-glow);\n}",
     "@utility text-brand-gradient {\n  background-image: var(--gradient-brand);\n  background-clip: text;\n  color: transparent;\n}",
+    "/* шторка: не выше экрана с учётом выреза */\n@utility max-h-sheet {\n  max-height: calc(100dvh - 16px - env(safe-area-inset-top));\n}",
+    "/* место под нижнюю навигацию телефона */\n@utility pb-nav {\n  padding-bottom: calc(96px + env(safe-area-inset-bottom));\n}",
+    "/* чат помощника на всю доступную высоту */\n@utility h-chat {\n  height: calc(100dvh - 248px - env(safe-area-inset-bottom));\n  min-height: 420px;\n  @media (width >= 64rem) {\n    height: calc(100dvh - 216px);\n  }\n}",
+    "@utility scrollbar-none {\n  scrollbar-width: none;\n  &::-webkit-scrollbar {\n    display: none;\n  }\n}",
   ];
   return [
     HEADER,
@@ -116,8 +122,10 @@ function css() {
     @apply bg-background text-foreground font-sans text-sm antialiased;
     font-feature-settings: "tnum" 1; /* табличные цифры: время, счётчики, табель */
   }
-  h1, h2, h3 { @apply font-display font-semibold; }
-  * { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+  h1, h2, h3 { @apply font-display font-medium; letter-spacing: -0.02em; }
+  input, select, textarea, button { font: inherit; }
+  ::selection { background: var(--success-soft); color: var(--success-soft-foreground); }
+  * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
   @media (prefers-reduced-motion: reduce) {
     *, ::before, ::after { transition-duration: 0ms !important; scroll-behavior: auto !important; }
   }

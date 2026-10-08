@@ -1,10 +1,9 @@
-import { Card } from "@/shared/ui";
+import { Card, PageHeader } from "@/shared/ui";
 import { AssistantChat } from "@/features/ask-assistant";
-import { PageHeader } from "@/widgets/admin-shell";
 
 export const AssistantPage = () => (
-  <div className="flex h-full flex-col">
-    <PageHeader title="Помощник" sub="Отвечает только по данным журнала и смен; без модели — правилами" />
-    <Card className="flex h-dvh flex-col overflow-hidden"><AssistantChat className="flex-1" /></Card>
+  <div className="flex flex-col">
+    <PageHeader title="Помощник" sub="Отвечает только по данным журнала и смен; без модели — правилами" className="mb-4 sm:mb-5" />
+    <Card className="flex h-chat flex-col overflow-hidden"><AssistantChat className="min-h-0 flex-1" /></Card>
   </div>
 );

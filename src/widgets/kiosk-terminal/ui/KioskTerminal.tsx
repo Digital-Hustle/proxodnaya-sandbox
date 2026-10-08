@@ -3,10 +3,9 @@ import { AnimatePresence, motion } from "motion/react";
 import { Camera, CameraOff, QrCode, ScanFace } from "lucide-react";
 import { api, type Challenge, type DecisionResult, type Direction } from "@/shared/api";
 import { useCamera } from "@/shared/hooks";
-import { Aurora, Button, Spinner } from "@/shared/ui";
+import { Button, Spinner } from "@/shared/ui";
 import { cn } from "@/shared/lib";
-import { spring, tween } from "@/shared/config/motion";
-import { motion as m } from "@/shared/config/tokens";
+import { spring, tween, popIn, duration, ease } from "@/shared/config/motion";
 import { useQrScanner } from "@/features/scan-qr";
 import { ChallengePrompt, sampleFrames, syntheticFrames } from "@/features/face-challenge";
 import { DemoPanel, useKioskDemo } from "@/features/kiosk-demo";
@@ -20,6 +19,8 @@ type State =
   | { kind: "result"; result: DecisionResult };
 
 const CAPTURE_MS = 3500;
+const CORNERS = ["left-0 top-0 rounded-tl-lg border-l-4 border-t-4", "right-0 top-0 rounded-tr-lg border-r-4 border-t-4", "bottom-0 left-0 rounded-bl-lg border-b-4 border-l-4", "bottom-0 right-0 rounded-br-lg border-b-4 border-r-4"];
+const sweep = { duration: duration.loop, repeat: Infinity, ease: ease.inOut } as const;
 
 export const KioskTerminal = ({ direction, checkpointId, demoOpen, setDemoOpen }: { direction: Direction; checkpointId: string; demoOpen: boolean; setDemoOpen: (v: boolean) => void }) => {
   const cam = useCamera("user");
@@ -55,48 +56,55 @@ export const KioskTerminal = ({ direction, checkpointId, demoOpen, setDemoOpen }
   const reset = useCallback(() => setState({ kind: "idle" }), []);
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-black">
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-card shadow-card">
       <video ref={cam.videoRef} playsInline muted className={cn("absolute inset-0 size-full -scale-x-100 object-cover transition-opacity duration-slow", cameraOn ? "opacity-100" : "opacity-0")} />
-      {!cameraOn && <Aurora dark intensity={0.75} />}
-      <div className="absolute inset-0 bg-black/20" />
+      {!cameraOn && <div aria-hidden className="absolute inset-0 bg-glow" />}
+      {cameraOn && <div aria-hidden className="absolute inset-0 bg-linear-to-t from-black/70 via-black/10 to-black/30" />}
 
-      <div className="relative flex flex-1 flex-col items-center justify-center gap-8 p-6 text-white">
+      <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-6 overflow-y-auto p-5 text-center sm:gap-8 sm:p-8">
         <AnimatePresence mode="wait">
           {state.kind === "idle" && (
-            <motion.div key="idle" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} transition={spring.soft} className="flex flex-col items-center gap-8 text-center">
-              <div className="relative size-64 sm:size-72">
-                {[0, 1, 2, 3].map((i) => (
-                  <span key={i} className={cn("absolute size-12 border-white", ["left-0 top-0 rounded-tl-xl border-l-4 border-t-4", "right-0 top-0 rounded-tr-xl border-r-4 border-t-4", "bottom-0 left-0 rounded-bl-xl border-b-4 border-l-4", "bottom-0 right-0 rounded-br-xl border-b-4 border-r-4"][i])} />
-                ))}
-                <motion.div className="absolute inset-x-4 h-1 rounded-full bg-brand-gradient shadow-pop" animate={{ top: ["8%", "92%", "8%"] }} transition={{ duration: m.duration.hero * 5, repeat: Infinity, ease: m.ease.inOut }} />
-                <div className="absolute inset-0 flex items-center justify-center">{!cameraOn && <QrCode className="size-24 opacity-60" />}</div>
+            <motion.div key="idle" variants={popIn} initial="hidden" animate="show" exit="exit" className="flex w-full flex-col items-center gap-6 sm:gap-8">
+              <div className="relative size-44 shrink-0 sm:size-64">
+                {CORNERS.map((c) => <span key={c} className={cn("absolute size-10 border-white sm:size-14", c)} />)}
+                <motion.div className="absolute inset-x-5 h-1 rounded-full bg-brand-gradient" animate={{ top: ["12%", "88%", "12%"] }} transition={sweep} />
+                {!cameraOn && <div className="absolute inset-0 flex items-center justify-center text-white/50"><QrCode className="size-16 sm:size-20" strokeWidth={1.5} /></div>}
               </div>
-              <div>
-                <div className="font-display text-4xl font-semibold drop-shadow">{direction === "IN" ? "Покажите QR для входа" : "Покажите QR для выхода"}</div>
-                <div className="mt-2 text-lg text-white/80">{cameraOn ? "Поднесите телефон к камере" : "Камера выключена — используйте демо-пульт"}</div>
+              <div className="flex flex-col items-center gap-2">
+                <h1 className="text-balance font-display text-3xl font-medium tracking-display text-white sm:text-4xl lg:text-5xl">{direction === "IN" ? "Покажите QR для входа" : "Покажите QR для выхода"}</h1>
+                <p className="text-balance text-base text-white/70 sm:text-lg">{cameraOn ? "Поднесите экран телефона к камере" : "Камера выключена — можно пройти через демо-пульт"}</p>
               </div>
               {!cameraOn && (
-                <div className="flex flex-wrap justify-center gap-3">
-                  {!noCamera && cam.state !== "on" && <Button variant="glass" size="lg" onClick={() => cam.start()}><Camera />Включить камеру</Button>}
-                  {noCamera && <Button variant="glass" size="lg" onClick={() => setNoCamera(false)}><Camera />Вернуть камеру</Button>}
+                <div className="flex w-full max-w-sm flex-col gap-2 sm:w-auto sm:max-w-none sm:flex-row sm:gap-3">
+                  {!noCamera && cam.state !== "on" && <Button variant="secondary" size="lg" onClick={() => cam.start()}><Camera />Включить камеру</Button>}
+                  {noCamera && <Button variant="secondary" size="lg" onClick={() => setNoCamera(false)}><Camera />Вернуть камеру</Button>}
                   <Button size="lg" onClick={() => setDemoOpen(true)}><ScanFace />Демо-пропуск</Button>
                 </div>
               )}
-              {cameraOn && <Button variant="glass" size="sm" onClick={() => setNoCamera(true)}><CameraOff />Без камеры</Button>}
-              {(cam.state === "denied" || cam.state === "unavailable") && <div className="text-sm text-white/70">{cam.state === "denied" ? "Доступ к камере запрещён в браузере" : "Камера не найдена"}</div>}
+              {(cam.state === "denied" || cam.state === "unavailable") && <p className="text-sm text-white/60">{cam.state === "denied" ? "Доступ к камере запрещён в браузере" : "Камера не найдена"}</p>}
             </motion.div>
           )}
           {(state.kind === "checking" || state.kind === "deciding") && (
-            <motion.div key="busy" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={tween.fast} className="flex flex-col items-center gap-4 rounded-xl bg-black/40 px-10 py-8 backdrop-blur-md">
-              <Spinner className="size-12 border-4" />
-              <div className="text-2xl font-semibold">{state.kind === "checking" ? "Проверяем пропуск…" : "Сверяем лицо…"}</div>
+            <motion.div key="busy" variants={popIn} initial="hidden" animate="show" exit="exit" className="flex items-center gap-4 rounded-lg bg-popover/90 px-6 py-5 text-popover-foreground shadow-pop backdrop-blur-md sm:px-8">
+              <Spinner className="size-7 border-3 text-brand" />
+              <span className="font-display text-xl font-medium tracking-display sm:text-2xl">{state.kind === "checking" ? "Проверяем пропуск…" : "Сверяем лицо…"}</span>
             </motion.div>
           )}
           {state.kind === "challenge" && (
-            <div key="challenge" className="text-foreground"><ChallengePrompt challenge={state.challenge} name={state.name} progress={state.progress} /></div>
+            <motion.div key="challenge" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={tween.fast} className="flex w-full justify-center">
+              <ChallengePrompt challenge={state.challenge} name={state.name} progress={state.progress} />
+            </motion.div>
           )}
         </AnimatePresence>
       </div>
+
+      <AnimatePresence>
+        {cameraOn && state.kind === "idle" && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }} transition={spring.soft} className="relative flex justify-center pb-4">
+            <Button variant="secondary" size="sm" onClick={() => setNoCamera(true)} className="bg-black/40 text-white backdrop-blur-md hover:bg-black/55"><CameraOff />Без камеры</Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>{state.kind === "result" && <DecisionScreen key={state.result.attemptId + state.result.ts} result={state.result} onDone={reset} />}</AnimatePresence>
       <DemoPanel open={demoOpen} onClose={() => setDemoOpen(false)} onScan={handleQr} onManual={manual} />

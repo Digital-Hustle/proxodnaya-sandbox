@@ -1,1 +1,2 @@
-export { AdminShell, PageHeader } from "./ui/AdminShell";
+export { AdminShell } from "./ui/AdminShell";
+export { PageHeader } from "@/shared/ui";

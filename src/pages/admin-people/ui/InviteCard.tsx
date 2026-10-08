@@ -8,16 +8,16 @@ export const InviteCard = ({ w }: { w: Worker }) => {
   if (!w.inviteCode) return null;
   const link = inviteLink(w);
   return (
-    <div className="flex flex-col items-center gap-4 text-center">
-      <div className="rounded-lg bg-white p-4 shadow-card"><QRCodeSVG value={link} size={208} marginSize={0} /></div>
+    <div className="flex flex-col items-center gap-5 text-center">
+      <div className="w-full max-w-56 rounded-lg bg-white p-4 shadow-card"><QRCodeSVG value={link} size={224} marginSize={0} className="h-auto w-full" /></div>
       <div>
         <div className="text-sm text-muted-foreground">Код приглашения</div>
-        <div className="font-mono text-3xl font-semibold tracking-widest">{w.inviteCode}</div>
+        <div className="mt-1 font-mono text-3xl font-medium tracking-widest">{w.inviteCode}</div>
       </div>
-      <p className="max-w-xs text-sm text-muted-foreground">Сотрудник сканирует QR камерой телефона — откроется приложение и привяжет телефон. Код одноразовый.</p>
-      <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(link).then(() => toast.success("Ссылка скопирована"))}><Copy />Ссылка</Button>
-        <a href={link} target="_blank" rel="noreferrer"><Button variant="ghost" size="sm"><ExternalLink />Открыть</Button></a>
+      <p className="max-w-xs text-balance text-sm text-muted-foreground">Код одноразовый. Можно продиктовать его, если камера телефона не читает QR.</p>
+      <div className="grid w-full max-w-xs grid-cols-2 gap-2">
+        <Button variant="secondary" onClick={() => navigator.clipboard.writeText(link).then(() => toast.success("Ссылка скопирована"))}><Copy />Ссылка</Button>
+        <a href={link} target="_blank" rel="noreferrer" tabIndex={-1}><Button variant="quiet" block><ExternalLink />Открыть</Button></a>
       </div>
     </div>
   );
