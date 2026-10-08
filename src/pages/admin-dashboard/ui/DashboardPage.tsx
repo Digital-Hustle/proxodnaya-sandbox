@@ -43,17 +43,17 @@ export const DashboardPage = () => {
         actions={<Link to={routes.adminPersonNew} tabIndex={-1}><Button><UserPlus />Новый сотрудник</Button></Link>} />
 
       <motion.div variants={fadeUp} initial="hidden" animate="show">
-        <Card>
-          <dl className="grid grid-cols-2 lg:grid-cols-4">
-            {kpi.map(({ label, value, sub }, i) => (
-              <div key={label} className={`flex min-w-0 flex-col gap-1 px-4 py-4 sm:px-6 sm:py-6 ${i % 2 ? "border-l border-border" : ""} ${i > 1 ? "border-t border-border lg:border-t-0" : ""} ${i === 2 ? "lg:border-l" : ""}`}>
-                <dt className="truncate text-sm text-muted-foreground">{label}</dt>
-                <dd className="font-display text-3xl font-medium tabular-nums tracking-display sm:text-4xl"><AnimatedNumber value={value} /></dd>
-                <dd className="truncate text-xs text-muted-foreground">{sub}</dd>
-              </div>
-            ))}
-          </dl>
-        </Card>
+        {/* KPI плитками, первая — акцентная в фирменном градиенте (как плитки sberbank.ru) */}
+        <dl className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          {kpi.map(({ label, value, sub }, i) => (
+            <div key={label} className={`relative flex min-w-0 flex-col gap-1 overflow-hidden rounded-xl px-4 py-4 shadow-card sm:px-6 sm:py-5 ${i === 0 ? "bg-brand-deep text-white" : "bg-card"}`}>
+              {i === 0 && <span aria-hidden className="absolute inset-0 bg-sheen" />}
+              <dt className={`relative truncate text-sm ${i === 0 ? "text-white/85" : "text-muted-foreground"}`}>{label}</dt>
+              <dd className="relative font-display text-4xl font-semibold tabular-nums tracking-hero sm:text-5xl"><AnimatedNumber value={value} /></dd>
+              <dd className={`relative truncate text-xs ${i === 0 ? "text-white/80" : "text-muted-foreground"}`}>{sub}</dd>
+            </div>
+          ))}
+        </dl>
       </motion.div>
 
       <motion.div variants={stagger(0.06, 0.1)} initial="hidden" animate="show" className="mt-3 grid gap-3 sm:mt-4 sm:gap-4 lg:grid-cols-5">

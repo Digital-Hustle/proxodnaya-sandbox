@@ -32,14 +32,14 @@ export const ActivateForm = ({ initialCode = "", payload, onDone }: { initialCod
   return (
     <div className="flex w-full flex-col items-center gap-6">
       <div className="text-center">
-        <h1 className="font-display text-2xl font-medium tracking-display sm:text-3xl">Код приглашения</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-display sm:text-3xl">Код приглашения</h1>
         <p className="mt-2 text-balance text-base text-muted-foreground">6 символов — из QR или от прораба</p>
       </div>
       <motion.div onClick={() => input.current?.focus()} animate={error ? { x: [0, -10, 10, -6, 6, 0] } : { x: 0 }} transition={tween.base} className="relative flex w-full max-w-xs gap-1.5 sm:gap-2">
         {Array.from({ length: LEN }, (_, i) => {
           const isCur = focused && i === Math.min(code.length, LEN - 1);
           return (
-            <span key={i} className={cn("relative flex h-14 min-w-0 flex-1 items-center justify-center rounded-md border bg-card font-display text-2xl font-medium transition-colors duration-fast sm:h-16 sm:text-3xl",
+            <span key={i} className={cn("relative flex h-14 min-w-0 flex-1 items-center justify-center rounded-md border bg-card font-display text-2xl font-semibold transition-colors duration-fast sm:h-16 sm:text-3xl",
               error ? "border-danger" : isCur ? "border-ring ring-4 ring-ring/15" : code[i] ? "border-border-strong" : "border-input")}>
               {code[i] && <motion.span initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={spring.pop}>{code[i]}</motion.span>}
             </span>

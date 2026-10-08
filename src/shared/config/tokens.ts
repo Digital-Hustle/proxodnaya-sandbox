@@ -14,7 +14,9 @@ export const palette = {
   black: "#08130B",
   /** «Чернила» Сбера: основной текст светлой темы */
   ink: { 900: "#172419", 700: "#3A453D", 600: "#5C665E", 400: "#8C9590" },
-  /** Холодный мятно-серый (фон сайтов Сбера) */
+  /** Мятный фон sberbank.ru 2026 (градиент #BBF2D5 → #D4F7E0 → #EEF7FB) */
+  mint: { 25: "#F5FBF7", 50: "#EDF8F1", 100: "#E2F5E9", 150: "#D6F2E1", 200: "#C4EDD6", 300: "#A9DDC0", 400: "#86C9A4", sber1: "#BBF2D5", sber2: "#D4F7E0", sber3: "#EEF7FB" },
+  /** Холодный мятно-серый (старый фон) */
   mist: { 25: "#F7F9F8", 50: "#F1F4F3", 100: "#EBEFEE", 150: "#E3E9E7", 200: "#D9E0DE", 300: "#C5CFCC", 400: "#A6B1AD" },
   /** Графит (футер Сбера) для тёмной темы */
   graphite: { 950: "#0E1013", 900: "#121417", 850: "#1A1D21", 800: "#212429", 750: "#292D33", 700: "#33383F", 600: "#454B53", 400: "#98A19D", 200: "#D5DBD8", 100: "#EDF1EF" },
@@ -25,7 +27,7 @@ export const palette = {
   blue: { 900: "#17263D", 800: "#175CD3", 400: "#8AB4F8", 100: "#E8F0FE" },
   slate: { 500: "#6B7C8F", 400: "#8FA0B3" },
   /** Мастер-цвета брендбука Сбера: иллюстрации, градиенты, графики */
-  sber: { green: "#21A038", sky: "#00ADEE", blue: "#0087CD", arctic: "#42E3B4", spring: "#A0E720", sun: "#FAED00", mint: "#54DC87", lagoon: "#39C0C3" },
+  sber: { green: "#21A038", sky: "#00ADEE", blue: "#0087CD", arctic: "#42E3B4", spring: "#A0E720", sun: "#FAED00", mint: "#54DC87", lagoon: "#39C0C3", lime: "#64EE61", cyan: "#32B8D3", deep: "#0B5E2A", ocean: "#0A4F6B" },
 } as const;
 
 const p = palette;
@@ -38,21 +40,21 @@ const p = palette;
  */
 export const semantic = {
   light: {
-    background: p.mist[100],
+    background: p.mint[100],
     foreground: p.ink[900],
     card: p.white,
     "card-foreground": p.ink[900],
     popover: p.white,
     "popover-foreground": p.ink[900],
-    surface: p.mist[150],                 // дорожка сегментов, заливка вторичных кнопок, утопленные блоки
+    surface: p.mint[50],                  // дорожка сегментов, заливка вторичных кнопок, утопленные блоки
     "surface-foreground": p.ink[900],
-    "surface-hover": p.mist[200],
-    muted: p.mist[50],                    // ховер строк, фон внутри карточек
+    "surface-hover": p.mint[150],
+    muted: p.mint[25],                    // ховер строк, фон внутри карточек
     "muted-foreground": p.ink[600],
     "subtle-foreground": p.ink[400],      // только иконки и неважные подписи ≥ 14px
-    border: p.mist[150],
-    "border-strong": p.mist[300],
-    input: p.mist[300],
+    border: p.mint[150],
+    "border-strong": p.mint[300],
+    input: p.mint[300],
     ring: p.green[500],
     primary: p.green[650],
     "primary-foreground": p.white,
@@ -158,8 +160,20 @@ export const semantic = {
 export const contrastLargeTextOnly = {} as const;
 
 export const gradient = {
-  /** Фирменный градиент кнопки «СберБанк Онлайн»: знак, полоса пропуска, прогресс */
-  brand: `linear-gradient(100deg, ${p.sber.mint} 0%, ${p.sber.green} 45%, ${p.teal[500]} 100%)`,
+  /** Фирменный градиент кнопки «СберБанк Онлайн» (снят с sberbank.ru): полоса пропуска, прогресс, акценты */
+  brand: `linear-gradient(90deg, ${p.sber.lime} 0%, ${p.sber.mint} 40%, ${p.sber.cyan} 100%)`,
+  /** Глубокий вариант — под белый текст (CTA, плитка-герой) */
+  "brand-deep": `linear-gradient(120deg, ${p.green[700]} 0%, ${p.sber.green} 45%, ${p.teal[500]} 100%)`,
+  /** Знак «Проходной»: конус брендбука, внутри Logo размывается для мягкости */
+  "brand-conic": `conic-gradient(from 200deg, ${p.sber.blue}, ${p.sber.sky}, ${p.sber.arctic}, ${p.sber.green}, ${p.sber.spring}, ${p.sber.sun}, ${p.sber.blue})`,
+  /** Блик на знаке и стеклянных плитках */
+  sheen: `radial-gradient(90% 70% at 25% 10%, rgb(255 255 255 / 0.55) 0%, rgb(255 255 255 / 0) 60%)`,
+  /** Фон страниц: мятный градиент sberbank.ru */
+  page: `linear-gradient(160deg, ${p.mint.sber1} 0%, ${p.mint.sber2} 45%, ${p.mint.sber3} 100%)`,
+  "page-dark": `radial-gradient(120% 60% at 50% 0%, rgb(33 160 56 / 0.18) 0%, rgb(20 163 168 / 0.08) 40%, transparent 75%), linear-gradient(${p.graphite[900]}, ${p.graphite[900]})`,
+  /** Дорожка навигации в шапке (как сегменты «Для всех / Для молодёжи» у Сбера) */
+  track: `linear-gradient(90deg, ${p.mint[200]} 0%, ${p.mint[100]} 55%, ${p.mint.sber3} 100%)`,
+  "track-dark": `linear-gradient(90deg, ${p.graphite[750]} 0%, ${p.graphite[800]} 100%)`,
   /** Мягкое мятное свечение фона героя (как на sberbank.ru/person_young) */
   glow: `radial-gradient(60% 50% at 50% 0%, rgb(84 220 135 / 0.22) 0%, rgb(57 192 195 / 0.10) 45%, transparent 75%)`,
   "glow-dark": `radial-gradient(60% 50% at 50% 0%, rgb(63 200 106 / 0.14) 0%, rgb(57 192 195 / 0.06) 45%, transparent 75%)`,
@@ -201,21 +215,29 @@ export const spacingSteps = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8, 10, 
 /** Высоты контролов → h-control-md и т. п. Цель касания ≥ 44 px (md) на телефоне. */
 export const control = { xs: 32, sm: 36, md: 44, lg: 52, xl: 64 } as const;
 
-/** Радиусы (px), как у Сбера: чипы 8, кнопки/инпуты 12, плитки 16, панели 24, крупные контейнеры 32. Вложенный = внешний − отступ. */
-export const radius = { xs: 6, sm: 8, md: 12, lg: 16, xl: 24, "2xl": 32 } as const;
+/**
+ * Радиусы (px). Крупнее, чем у Сбера, потому что все скругления — суперэллипс (corner-shape: squircle, см. squircle в gen-tokens):
+ * он визуально «съедает» ~30 % радиуса и даёт органичную плавную форму. Вложенный = внешний − отступ.
+ */
+export const radius = { xs: 10, sm: 14, md: 18, lg: 26, xl: 34, "2xl": 44, "3xl": 56 } as const;
+
+/** Суперэллипс для всех скруглений (кроме rounded-full). 2 = squircle. */
+export const cornerShape = "squircle" as const;
 
 export const shadow = {
   light: {
     xs: "0 1px 2px rgb(23 36 25 / 0.06)",
-    card: "0 1px 2px rgb(23 36 25 / 0.04), 0 6px 20px -12px rgb(23 36 25 / 0.14)",
-    float: "0 1px 2px rgb(23 36 25 / 0.05), 0 12px 32px -14px rgb(23 36 25 / 0.22)",
-    pop: "0 2px 6px rgb(23 36 25 / 0.06), 0 28px 64px -20px rgb(23 36 25 / 0.32)",
+    card: "0 1px 2px rgb(8 92 24 / 0.04), 0 12px 30px -14px rgb(8 92 24 / 0.16)",
+    float: "0 2px 6px rgb(8 92 24 / 0.05), 0 18px 44px -18px rgb(8 92 24 / 0.28)",
+    pop: "0 4px 12px rgb(8 92 24 / 0.06), 0 32px 72px -24px rgb(8 92 24 / 0.36)",
+    glow: "0 12px 30px -8px rgb(33 160 56 / 0.45)",
   },
   dark: {
     xs: "0 0 0 1px rgb(255 255 255 / 0.04)",
     card: "inset 0 0 0 1px rgb(255 255 255 / 0.05)",
     float: "inset 0 0 0 1px rgb(255 255 255 / 0.06), 0 16px 40px -16px rgb(0 0 0 / 0.7)",
     pop: "inset 0 0 0 1px rgb(255 255 255 / 0.07), 0 28px 64px -16px rgb(0 0 0 / 0.8)",
+    glow: "0 12px 34px -8px rgb(63 200 106 / 0.4)",
   },
 } as const;
 
@@ -247,6 +269,10 @@ export const motion = {
     counter: { stiffness: 110, damping: 13, mass: 0.9 },                  // useSpring для счётчиков: заметный перелёт
   },
   stagger: { step: 0.045, max: 0.3 },
+  /** Живой фон (Aurora): скорость течения шума и доля пикселей рендера (шум мягкий — полное разрешение не нужно) */
+  aurora: { speed: 0.06, resolution: 0.5 },
+  /** Сжатие шапки при прокрутке */
+  header: { shrinkAt: 24 },
   distance: { enter: 14, exit: 8 },
   scale: { hover: 1.015, tap: 0.96, popIn: 0.94, popOut: 0.98 },
   swipe: { offset: 96, velocity: 500 },

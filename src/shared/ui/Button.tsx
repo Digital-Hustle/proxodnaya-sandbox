@@ -10,6 +10,8 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         primary: "bg-primary text-primary-foreground hover:bg-primary-hover",
+        /** Как «СберБанк Онлайн» в шапке Сбера: градиент, белый полужирный текст */
+        brand: "bg-brand-deep font-semibold text-white shadow-glow hover:brightness-105",
         secondary: "bg-surface text-surface-foreground hover:bg-surface-hover",
         outline: "border border-border-strong bg-card text-foreground hover:bg-muted",
         ghost: "text-foreground hover:bg-surface",
@@ -20,7 +22,7 @@ export const buttonVariants = cva(
         inverse: "bg-inverse text-inverse-foreground hover:opacity-90",
       },
       size: {
-        sm: "h-control-sm rounded-sm px-3 text-sm [&_svg]:size-4",
+        sm: "h-control-sm rounded-sm px-3.5 text-sm [&_svg]:size-4",
         md: "h-control-md rounded-md px-4 text-sm sm:px-5 [&_svg]:size-5",
         lg: "h-control-lg rounded-md px-6 text-base [&_svg]:size-5",
         xl: "h-control-xl rounded-lg px-8 text-lg [&_svg]:size-6",

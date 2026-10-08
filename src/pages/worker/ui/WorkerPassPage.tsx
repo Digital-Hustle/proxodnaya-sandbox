@@ -37,7 +37,7 @@ export const WorkerPassPage = () => {
         <div className="flex items-center gap-3 border-t border-dashed border-border-strong px-5 py-4">
           <Avatar name={w.fullName} photo={w.photo} className="size-12" />
           <div className="min-w-0 flex-1">
-            <div className="truncate font-display text-lg font-medium tracking-display">{w.fullName}</div>
+            <div className="truncate font-display text-lg font-semibold tracking-display">{w.fullName}</div>
             <div className="truncate text-sm text-muted-foreground">{w.position} · {w.contractor}</div>
           </div>
         </div>

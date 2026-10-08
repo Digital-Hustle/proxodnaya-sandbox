@@ -15,7 +15,7 @@ export const WorkerHistoryPage = () => {
   const groups = mine.reduce<Record<string, typeof mine>>((acc, a) => { (acc[dayKey(a.ts)] ??= []).push(a); return acc; }, {});
   return (
     <motion.div variants={stagger()} initial="hidden" animate="show" className="flex flex-col gap-5 pt-2">
-      <motion.h1 variants={fadeUp} className="px-1 font-display text-2xl font-medium tracking-display">История проходов</motion.h1>
+      <motion.h1 variants={fadeUp} className="px-1 font-display text-2xl font-semibold tracking-display">История проходов</motion.h1>
       {mine.length === 0 && <Card><EmptyState icon={<History />} title="Проходов ещё не было" text="В песочнице история видна, если киоск открыт на этом же устройстве." /></Card>}
       {Object.entries(groups).map(([day, list]) => (
         <motion.section key={day} variants={fadeUp}>

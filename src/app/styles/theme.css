@@ -6,21 +6,21 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #EBEFEE;
+  --background: #E2F5E9;
   --foreground: #172419;
   --card: #FFFFFF;
   --card-foreground: #172419;
   --popover: #FFFFFF;
   --popover-foreground: #172419;
-  --surface: #E3E9E7;
+  --surface: #EDF8F1;
   --surface-foreground: #172419;
-  --surface-hover: #D9E0DE;
-  --muted: #F1F4F3;
+  --surface-hover: #D6F2E1;
+  --muted: #F5FBF7;
   --muted-foreground: #5C665E;
   --subtle-foreground: #8C9590;
-  --border: #E3E9E7;
-  --border-strong: #C5CFCC;
-  --input: #C5CFCC;
+  --border: #D6F2E1;
+  --border-strong: #A9DDC0;
+  --input: #A9DDC0;
   --ring: #21A038;
   --primary: #0E8429;
   --primary-foreground: #FFFFFF;
@@ -61,14 +61,22 @@
   --chart-3: #7EE29A;
   --chart-4: #6B7C8F;
   --chart-5: #9A5200;
-  --gradient-brand: linear-gradient(100deg, #54DC87 0%, #21A038 45%, #14A3A8 100%);
+  --gradient-brand: linear-gradient(90deg, #64EE61 0%, #54DC87 40%, #32B8D3 100%);
+  --gradient-brand-deep: linear-gradient(120deg, #0B7323 0%, #21A038 45%, #14A3A8 100%);
+  --gradient-brand-conic: conic-gradient(from 200deg, #0087CD, #00ADEE, #42E3B4, #21A038, #A0E720, #FAED00, #0087CD);
+  --gradient-sheen: radial-gradient(90% 70% at 25% 10%, rgb(255 255 255 / 0.55) 0%, rgb(255 255 255 / 0) 60%);
+  --gradient-page: linear-gradient(160deg, #BBF2D5 0%, #D4F7E0 45%, #EEF7FB 100%);
+  --gradient-page-dark: radial-gradient(120% 60% at 50% 0%, rgb(33 160 56 / 0.18) 0%, rgb(20 163 168 / 0.08) 40%, transparent 75%), linear-gradient(#121417, #121417);
+  --gradient-track: linear-gradient(90deg, #C4EDD6 0%, #E2F5E9 55%, #EEF7FB 100%);
+  --gradient-track-dark: linear-gradient(90deg, #292D33 0%, #212429 100%);
   --gradient-glow: radial-gradient(60% 50% at 50% 0%, rgb(84 220 135 / 0.22) 0%, rgb(57 192 195 / 0.10) 45%, transparent 75%);
   --gradient-glow-dark: radial-gradient(60% 50% at 50% 0%, rgb(63 200 106 / 0.14) 0%, rgb(57 192 195 / 0.06) 45%, transparent 75%);
   --elev-xs: 0 1px 2px rgb(23 36 25 / 0.06);
-  --elev-card: 0 1px 2px rgb(23 36 25 / 0.04), 0 6px 20px -12px rgb(23 36 25 / 0.14);
-  --elev-float: 0 1px 2px rgb(23 36 25 / 0.05), 0 12px 32px -14px rgb(23 36 25 / 0.22);
-  --elev-pop: 0 2px 6px rgb(23 36 25 / 0.06), 0 28px 64px -20px rgb(23 36 25 / 0.32);
-  --radius: 12px; /* для shadcn-компонентов, которые считают от --radius */
+  --elev-card: 0 1px 2px rgb(8 92 24 / 0.04), 0 12px 30px -14px rgb(8 92 24 / 0.16);
+  --elev-float: 0 2px 6px rgb(8 92 24 / 0.05), 0 18px 44px -18px rgb(8 92 24 / 0.28);
+  --elev-pop: 0 4px 12px rgb(8 92 24 / 0.06), 0 32px 72px -24px rgb(8 92 24 / 0.36);
+  --elev-glow: 0 12px 30px -8px rgb(33 160 56 / 0.45);
+  --radius: 18px; /* для shadcn-компонентов, которые считают от --radius */
 }
 
 .dark {
@@ -131,6 +139,9 @@
   --elev-card: inset 0 0 0 1px rgb(255 255 255 / 0.05);
   --elev-float: inset 0 0 0 1px rgb(255 255 255 / 0.06), 0 16px 40px -16px rgb(0 0 0 / 0.7);
   --elev-pop: inset 0 0 0 1px rgb(255 255 255 / 0.07), 0 28px 64px -16px rgb(0 0 0 / 0.8);
+  --elev-glow: 0 12px 34px -8px rgb(63 200 106 / 0.4);
+  --gradient-page: var(--gradient-page-dark);
+  --gradient-track: var(--gradient-track-dark);
   --gradient-glow: var(--gradient-glow-dark);
 }
 
@@ -175,12 +186,13 @@
   --text-5xl--line-height: 62px;
   --text-6xl: 72px;
   --text-6xl--line-height: 76px;
-  --radius-xs: 6px;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
-  --radius-2xl: 32px;
+  --radius-xs: 10px;
+  --radius-sm: 14px;
+  --radius-md: 18px;
+  --radius-lg: 26px;
+  --radius-xl: 34px;
+  --radius-2xl: 44px;
+  --radius-3xl: 56px;
   --radius-full: 9999px;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
@@ -197,7 +209,12 @@
   --color-sber-sun: #FAED00;
   --color-sber-mint: #54DC87;
   --color-sber-lagoon: #39C0C3;
-  --tracking-display: -0.02em;
+  --color-sber-lime: #64EE61;
+  --color-sber-cyan: #32B8D3;
+  --color-sber-deep: #0B5E2A;
+  --color-sber-ocean: #0A4F6B;
+  --tracking-display: -0.03em;
+  --tracking-hero: -0.055em;
   --tracking-caps: 0.06em;
 }
 
@@ -261,6 +278,7 @@
   --shadow-card: var(--elev-card);
   --shadow-float: var(--elev-float);
   --shadow-pop: var(--elev-pop);
+  --shadow-glow: var(--elev-glow);
 }
 
 @utility duration-instant {
@@ -335,6 +353,29 @@
   background-image: var(--gradient-glow);
 }
 
+@utility bg-brand-deep {
+  background-image: var(--gradient-brand-deep);
+}
+
+@utility bg-brand-conic {
+  background-image: var(--gradient-brand-conic);
+}
+
+@utility bg-sheen {
+  background-image: var(--gradient-sheen);
+}
+
+@utility bg-track {
+  background-image: var(--gradient-track);
+}
+
+/* фон страниц: мятный градиент Сбера, не уезжает при прокрутке */
+@utility bg-page {
+  background-color: var(--background);
+  background-image: var(--gradient-page);
+  background-attachment: fixed;
+}
+
 @utility text-brand-gradient {
   background-image: var(--gradient-brand);
   background-clip: text;
@@ -369,12 +410,17 @@
 
 @layer base {
   * { @apply border-border outline-ring/50; }
-  html { -webkit-tap-highlight-color: transparent; }
+  /* фон html = фон темы: никаких чёрных полос под вырезом и при оттягивании страницы */
+  html { -webkit-tap-highlight-color: transparent; background-color: var(--background); }
+  /* органичные скругления: суперэллипс вместо дуги окружности (Chrome 139+, остальные — обычный радиус) */
+  @supports (corner-shape: squircle) {
+    [class*="rounded-"]:not(.rounded-full) { corner-shape: squircle; }
+  }
   body {
-    @apply bg-background text-foreground font-sans text-sm antialiased;
+    @apply bg-page text-foreground font-sans text-sm antialiased;
     font-feature-settings: "tnum" 1; /* табличные цифры: время, счётчики, табель */
   }
-  h1, h2, h3 { @apply font-display font-medium; letter-spacing: -0.02em; }
+  h1, h2, h3 { @apply font-display font-semibold; letter-spacing: -0.03em; }
   input, select, textarea, button { font: inherit; }
   ::selection { background: var(--success-soft); color: var(--success-soft-foreground); }
   * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }

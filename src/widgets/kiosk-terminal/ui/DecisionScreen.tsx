@@ -32,7 +32,7 @@ export const DecisionScreen = ({ result, onDone }: { result: DecisionResult; onD
           </motion.span>
         </div>
         <motion.div variants={fadeUp} className="flex flex-col items-center gap-3">
-          <div className="text-balance font-display text-4xl font-medium tracking-display sm:text-6xl">{result.message}</div>
+          <div className="text-balance font-display text-4xl font-semibold tracking-display sm:text-6xl">{result.message}</div>
           <div className="max-w-3xl text-balance text-lg opacity-85 sm:text-2xl">{result.hint}</div>
         </motion.div>
         {result.worker && (

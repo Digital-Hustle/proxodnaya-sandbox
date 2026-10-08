@@ -41,7 +41,7 @@ export const Dialog = ({ open, onClose, title, description, children, footer, cl
             )}
             <div className="flex shrink-0 items-start gap-4 px-5 pb-2 pt-2 sm:px-6 sm:pt-6" onPointerDown={(e) => !desktop && drag.start(e)}>
               <div className="min-w-0 flex-1">
-                {title && <h2 className="font-display text-xl font-medium tracking-display">{title}</h2>}
+                {title && <h2 className="font-display text-xl font-semibold tracking-display">{title}</h2>}
                 {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
               </div>
               <button type="button" onClick={onClose} aria-label="Закрыть" className="-mr-2 -mt-1 flex size-control-md shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors duration-fast hover:bg-surface hover:text-foreground"><X className="size-5" /></button>

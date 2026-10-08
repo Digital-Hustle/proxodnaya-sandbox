@@ -10,7 +10,8 @@ const resolve = (m: Mode) => m === "dark" || (m === "system" && matchMedia("(pre
 /** Применить сохранённую тему (дублирует no-flash скрипт в index.html — на случай SPA-переходов). */
 export const applyStoredTheme = () => document.documentElement.classList.toggle("dark", resolve(read()));
 
-export const ThemeSwitcher = ({ className }: { className?: string }) => {
+/** Режим темы с сохранением и подпиской на системную. */
+export const useThemeMode = () => {
   const [mode, setMode] = useState<Mode>(read);
   useEffect(() => {
     localStorage.setItem(KEY, mode);
@@ -20,6 +21,13 @@ export const ThemeSwitcher = ({ className }: { className?: string }) => {
     mq.addEventListener("change", applyStoredTheme);
     return () => mq.removeEventListener("change", applyStoredTheme);
   }, [mode]);
+  return [mode, setMode] as const;
+};
+
+export type ThemeMode = Mode;
+
+export const ThemeSwitcher = ({ className }: { className?: string }) => {
+  const [mode, setMode] = useThemeMode();
   return (
     <Segmented size="sm" value={mode} onChange={setMode} label="Тема" className={className}
       options={[

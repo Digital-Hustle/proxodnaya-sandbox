@@ -61,3 +61,6 @@ export const inView = {
   viewport: { once: true, amount: 0.25 },
   variants: fadeUp,
 } as const;
+
+/** Прочие числовые токены движения (пороги, скорости) */
+export const motionTokens = { header: m.header, aurora: m.aurora } as const;

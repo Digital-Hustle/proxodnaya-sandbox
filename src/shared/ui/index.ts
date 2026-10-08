@@ -17,3 +17,7 @@ export * from "./ThemeSwitcher";
 export * from "./AnimatedNumber";
 export * from "./Progress";
 export * from "./PageHeader";
+export * from "./Aurora";
+export * from "./StyledQr";
+export * from "./Preferences";
+export * from "./HeaderBar";

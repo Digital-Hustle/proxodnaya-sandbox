@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Camera, CameraOff, QrCode, ScanFace } from "lucide-react";
 import { api, type Challenge, type DecisionResult, type Direction } from "@/shared/api";
 import { useCamera } from "@/shared/hooks";
-import { Button, Spinner } from "@/shared/ui";
+import { Aurora, Button, Spinner } from "@/shared/ui";
 import { cn } from "@/shared/lib";
 import { spring, tween, popIn, duration, ease } from "@/shared/config/motion";
 import { useQrScanner } from "@/features/scan-qr";
@@ -56,9 +56,9 @@ export const KioskTerminal = ({ direction, checkpointId, demoOpen, setDemoOpen }
   const reset = useCallback(() => setState({ kind: "idle" }), []);
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-card shadow-card">
+    <div className="relative isolate flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-card shadow-card ring-1 ring-white/10">
       <video ref={cam.videoRef} playsInline muted className={cn("absolute inset-0 size-full -scale-x-100 object-cover transition-opacity duration-slow", cameraOn ? "opacity-100" : "opacity-0")} />
-      {!cameraOn && <div aria-hidden className="absolute inset-0 bg-glow" />}
+      {!cameraOn && <Aurora tone="kiosk" intensity={0.9} />}
       {cameraOn && <div aria-hidden className="absolute inset-0 bg-linear-to-t from-black/70 via-black/10 to-black/30" />}
 
       <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-6 overflow-y-auto p-5 text-center sm:gap-8 sm:p-8">
@@ -71,7 +71,7 @@ export const KioskTerminal = ({ direction, checkpointId, demoOpen, setDemoOpen }
                 {!cameraOn && <div className="absolute inset-0 flex items-center justify-center text-white/50"><QrCode className="size-16 sm:size-20" strokeWidth={1.5} /></div>}
               </div>
               <div className="flex flex-col items-center gap-2">
-                <h1 className="text-balance font-display text-3xl font-medium tracking-display text-white sm:text-4xl lg:text-5xl">{direction === "IN" ? "Покажите QR для входа" : "Покажите QR для выхода"}</h1>
+                <h1 className="text-balance font-display text-3xl font-semibold tracking-display text-white sm:text-4xl lg:text-5xl">{direction === "IN" ? "Покажите QR для входа" : "Покажите QR для выхода"}</h1>
                 <p className="text-balance text-base text-white/70 sm:text-lg">{cameraOn ? "Поднесите экран телефона к камере" : "Камера выключена — можно пройти через демо-пульт"}</p>
               </div>
               {!cameraOn && (
@@ -87,7 +87,7 @@ export const KioskTerminal = ({ direction, checkpointId, demoOpen, setDemoOpen }
           {(state.kind === "checking" || state.kind === "deciding") && (
             <motion.div key="busy" variants={popIn} initial="hidden" animate="show" exit="exit" className="flex items-center gap-4 rounded-lg bg-popover/90 px-6 py-5 text-popover-foreground shadow-pop backdrop-blur-md sm:px-8">
               <Spinner className="size-7 border-3 text-brand" />
-              <span className="font-display text-xl font-medium tracking-display sm:text-2xl">{state.kind === "checking" ? "Проверяем пропуск…" : "Сверяем лицо…"}</span>
+              <span className="font-display text-xl font-semibold tracking-display sm:text-2xl">{state.kind === "checking" ? "Проверяем пропуск…" : "Сверяем лицо…"}</span>
             </motion.div>
           )}
           {state.kind === "challenge" && (

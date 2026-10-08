@@ -18,7 +18,7 @@ export const ChallengePrompt = ({ challenge, name, progress }: { challenge: Chal
       <motion.div animate={SWAY[challenge.kind]} transition={loop} className="flex size-16 items-center justify-center rounded-full bg-accent text-accent-foreground sm:size-20">
         <Icon className="size-8 sm:size-10" />
       </motion.div>
-      <div className="text-balance font-display text-2xl font-medium tracking-display sm:text-3xl">{challenge.text}</div>
+      <div className="text-balance font-display text-2xl font-semibold tracking-display sm:text-3xl">{challenge.text}</div>
       <Progress value={progress} className="h-2 w-full" />
     </motion.div>
   );

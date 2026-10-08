@@ -1,49 +1,54 @@
 import { useMemo } from "react";
 import { Link } from "react-router";
 import { motion } from "motion/react";
-import { QRCodeSVG } from "qrcode.react";
-import { ArrowRight, ScanLine, LayoutGrid } from "lucide-react";
-import { Logo, ThemeSwitcher, Status, Button, AnimatedNumber } from "@/shared/ui";
+import { ArrowRight, ScanLine, ChevronRight, ScrollText, BarChart3, Sparkles, ShieldCheck } from "lucide-react";
+import { Logo, LogoMark, Status, Button, AnimatedNumber, Aurora, HeaderBar, NavTrack, PreferencesButton, StyledQr } from "@/shared/ui";
 import { DEMO_INVITES, useDb, presenceNow, dailyStats } from "@/shared/api";
-import { todayKey } from "@/shared/lib";
+import { todayKey, cn } from "@/shared/lib";
 import { routes, absoluteUrl } from "@/shared/const/router";
-import { fadeUp, stagger, lift, spring, inView, duration } from "@/shared/config/motion";
+import { fadeUp, stagger, lift, spring, inView, tween, duration } from "@/shared/config/motion";
 
-const KioskArt = () => (
-  <div className="relative flex h-36 items-center justify-center overflow-hidden rounded-md bg-inverse">
-    <div className="relative size-20">
-      {["left-0 top-0 border-l-2 border-t-2 rounded-tl-sm", "right-0 top-0 border-r-2 border-t-2 rounded-tr-sm", "bottom-0 left-0 border-b-2 border-l-2 rounded-bl-sm", "bottom-0 right-0 border-b-2 border-r-2 rounded-br-sm"].map((c) => (
-        <span key={c} className={`absolute size-5 border-inverse-foreground ${c}`} />
-      ))}
-      <motion.span className="absolute inset-x-2 h-0.5 rounded-full bg-brand-gradient" animate={{ top: ["15%", "85%", "15%"] }} transition={{ duration: duration.loop, repeat: Infinity, ease: "easeInOut" }} />
-    </div>
-  </div>
-);
-
-const PhoneArt = () => (
-  <div className="flex h-36 items-center justify-center rounded-md bg-surface">
-    <div className="flex w-28 flex-col items-center gap-2 rounded-md bg-card p-2.5 shadow-card">
-      <div className="h-1 w-full overflow-hidden rounded-full bg-surface"><motion.div className="h-full origin-left bg-brand-gradient" animate={{ scaleX: [1, 0.15, 1] }} transition={{ duration: duration.loop * 2, repeat: Infinity, ease: "easeInOut" }} /></div>
-      <div className="rounded-xs bg-white p-1.5"><QRCodeSVG value="PX1.demo" size={64} marginSize={0} /></div>
-    </div>
-  </div>
-);
-
-const BARS = [0.45, 0.7, 0.55, 0.9, 0.62, 0.8, 0.38];
-const AdminArt = () => (
-  <div className="flex h-36 items-end gap-2 rounded-md bg-surface px-5 pb-5 pt-8">
-    {BARS.map((h, i) => (
-      <motion.span key={i} className={i === 3 ? "flex-1 origin-bottom rounded-t-xs bg-brand" : "flex-1 origin-bottom rounded-t-xs bg-border-strong"}
-        style={{ height: `${h * 100}%` }} initial={{ scaleY: 0 }} whileInView={{ scaleY: 1 }} viewport={{ once: true }} transition={{ ...spring.bar, delay: i * 0.05 }} />
-    ))}
-  </div>
-);
+const art = (name: string) => `${import.meta.env.BASE_URL}art/${name}.webp`;
 
 const ZONES = [
-  { to: routes.kiosk, art: KioskArt, title: "Киоск на проходной", text: "Скан QR, проверка живости и вердикт за пару секунд", device: "Ноутбук или планшет с камерой" },
-  { to: routes.worker, art: PhoneArt, title: "Телефон рабочего", text: "Код меняется каждые 30 секунд и работает без интернета", device: "Откройте на телефоне" },
-  { to: routes.admin, art: AdminArt, title: "Админка прораба", text: "Кто на объекте, журнал, смены, аналитика и помощник", device: "Компьютер или планшет" },
+  { to: routes.kiosk, img: art("kiosk"), title: "Киоск на проходной", text: "Скан QR, проверка живости и вердикт за пару секунд", device: "Ноутбук или планшет с камерой" },
+  { to: routes.worker, img: art("phone"), title: "Телефон рабочего", text: "Код меняется каждые 30 секунд и работает без интернета", device: "Откройте на телефоне" },
+  { to: routes.admin, img: art("admin"), title: "Админка прораба", text: "Кто на объекте, журнал, смены, аналитика и помощник", device: "Компьютер или планшет" },
 ];
+
+const STORIES = [
+  { to: routes.kiosk, label: "Киоск", img: art("kiosk") },
+  { to: routes.worker, label: "Пропуск в телефоне", img: art("phone") },
+  { to: routes.admin, label: "Обстановка", img: art("admin") },
+  { to: routes.adminJournal, label: "Журнал проходов", icon: ScrollText, tone: "bg-brand-deep" },
+  { to: routes.adminAnalytics, label: "Аналитика", icon: BarChart3, tone: "bg-brand" },
+  { to: routes.adminAssistant, label: "Помощник", icon: Sparkles, tone: "bg-brand-conic" },
+];
+
+/** Герой как у sberbank.ru: две карточки внахлёст с наклоном — подсказка и живой пропуск. */
+const HeroCards = () => (
+  <div className="relative mx-auto mt-10 h-80 w-full max-w-sm sm:mt-14 sm:h-96 sm:max-w-xl">
+    <motion.div initial={{ opacity: 0, y: 40, rotate: 0 }} animate={{ opacity: 1, y: 0, rotate: 5 }} transition={{ ...spring.soft, opacity: tween.base }}
+      whileHover={{ rotate: 2, y: -6 }}
+      className="absolute right-2 top-0 w-56 overflow-hidden rounded-2xl bg-brand-deep p-4 text-white shadow-pop sm:right-6 sm:w-72 sm:p-5">
+      <div aria-hidden className="absolute inset-0 bg-sheen" />
+      <div className="relative flex items-center gap-2.5">
+        <LogoMark className="size-8 shadow-none" />
+        <div className="min-w-0 text-xs leading-tight text-white/80"><div className="font-semibold text-white">Пропуск на объект</div>ЖК «Северный»</div>
+      </div>
+      <div className="relative mt-4 rounded-xl bg-white p-3"><StyledQr value="PX1.demo.proxodnaya" label="Пример QR-пропуска" /></div>
+      <div className="relative mt-3 flex items-center justify-between text-xs text-white/80"><span>Новый код через 24 с</span><ShieldCheck className="size-4" /></div>
+    </motion.div>
+    <motion.div initial={{ opacity: 0, y: 40, rotate: 0 }} animate={{ opacity: 1, y: 0, rotate: -6 }} transition={{ ...spring.soft, opacity: tween.base, delay: duration.instant }}
+      whileHover={{ rotate: -3, y: -6 }}
+      className="absolute bottom-2 left-3 flex w-44 flex-col overflow-hidden rounded-2xl bg-card shadow-pop sm:bottom-0 sm:left-4 sm:w-60">
+      <div className="flex-1 bg-linear-to-br from-sber-lime/60 via-sber-mint/30 to-transparent p-5 pb-10">
+        <p className="font-display text-lg font-semibold leading-tight tracking-display text-foreground sm:text-xl">Показал QR — киоск сверил лицо — проход</p>
+      </div>
+      <Link to={routes.kiosk} className="flex items-center gap-1 bg-card/80 px-5 py-3.5 text-sm text-muted-foreground transition-colors duration-fast hover:text-foreground">Попробовать на киоске<ChevronRight className="size-4" /></Link>
+    </motion.div>
+  </div>
+);
 
 export const HomePage = () => {
   const db = useDb();
@@ -57,59 +62,80 @@ export const HomePage = () => {
   ];
 
   return (
-    <div className="relative min-h-dvh overflow-x-clip bg-background">
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-160 bg-glow" />
-      <header className="sticky top-0 z-nav px-3 pt-safe sm:px-6">
-        <div className="mx-auto mt-2 flex h-14 max-w-6xl items-center gap-3 rounded-lg bg-card/90 px-2.5 shadow-float backdrop-blur-md sm:mt-3 sm:h-16 sm:px-3">
-          <Logo className="px-1" />
-          <nav className="ml-6 hidden items-center gap-1 md:flex">
-            {ZONES.map((z) => <Link key={z.to} to={z.to} className="rounded-sm px-3 py-2 text-sm font-medium text-muted-foreground transition-colors duration-fast hover:bg-surface hover:text-foreground">{z.title.split(" ")[0]}</Link>)}
-          </nav>
-          <ThemeSwitcher className="ml-auto" />
+    <div className="relative isolate min-h-dvh overflow-x-clip">
+      <Aurora fixed intensity={0.85} />
+      <HeaderBar inner="max-w-6xl">
+        <Logo className="px-1.5" />
+        <NavTrack className="ml-auto hidden md:block" items={[
+          { to: routes.kiosk, label: "Киоск" }, { to: routes.worker, label: "Телефон" }, { to: routes.admin, label: "Админка" },
+        ]} />
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 md:ml-0">
+          <PreferencesButton />
+          <Link to={routes.kiosk} tabIndex={-1} className="hidden sm:block"><Button variant="brand" className="h-12 rounded-md px-5"><ScanLine />Открыть киоск</Button></Link>
         </div>
-      </header>
+      </HeaderBar>
 
-      <main className="relative mx-auto max-w-6xl px-4 pb-16 sm:px-6">
-        <motion.section variants={stagger(0.07)} initial="hidden" animate="show" className="flex flex-col items-center pb-10 pt-12 text-center sm:pb-14 sm:pt-20">
-          <motion.div variants={fadeUp}><Status tone="success" dot>Кейс «Проходная» · песочница на моках</Status></motion.div>
-          <motion.h1 variants={fadeUp} className="mt-5 max-w-4xl text-balance font-display text-4xl font-medium tracking-display sm:text-5xl lg:text-6xl">
+      <main className="relative mx-auto max-w-6xl px-4 pb-10 sm:px-6">
+        <motion.section variants={stagger(0.07)} initial="hidden" animate="show" className="flex flex-col items-center pt-12 text-center sm:pt-20">
+          <motion.div variants={fadeUp}><Status tone="success" dot className="h-7 bg-card/70 px-3 backdrop-blur-md">Кейс «Проходная» · песочница на моках</Status></motion.div>
+          <motion.h1 variants={fadeUp} className="mt-6 max-w-5xl text-balance font-display text-4xl font-semibold leading-none tracking-hero sm:text-5xl lg:text-6xl">
             Проход на стройку без чужих пропусков
           </motion.h1>
-          <motion.p variants={fadeUp} className="mt-4 max-w-2xl text-pretty text-base text-muted-foreground sm:text-lg">
+          <motion.p variants={fadeUp} className="mt-5 max-w-2xl text-pretty text-base text-foreground/70 sm:text-lg">
             Телефон рабочего показывает живой QR, киоск сверяет лицо, прораб видит всё в реальном времени. Бэкенд — моки в браузере: откройте киоск и админку в разных вкладках.
           </motion.p>
-          <motion.div variants={fadeUp} className="mt-7 flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:gap-3">
-            <Link to={routes.kiosk} tabIndex={-1}><Button size="lg" block><ScanLine />Открыть киоск</Button></Link>
-            <Link to={routes.admin} tabIndex={-1}><Button size="lg" variant="secondary" block className="bg-card shadow-xs hover:bg-muted"><LayoutGrid />Админка</Button></Link>
+          <motion.div variants={fadeUp} className="mt-8 flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:gap-3">
+            <Link to={routes.kiosk} tabIndex={-1}><Button variant="brand" size="lg" block className="h-14 rounded-lg px-8"><ScanLine />Открыть киоск</Button></Link>
+            <Link to={routes.admin} tabIndex={-1}><Button size="lg" variant="secondary" block className="h-14 rounded-lg bg-card px-8 shadow-card hover:bg-muted">Админка прораба<ArrowRight /></Button></Link>
           </motion.div>
         </motion.section>
 
-        <motion.section {...inView} className="rounded-lg bg-card shadow-card sm:rounded-xl">
-          <dl className="grid grid-cols-2 lg:grid-cols-4">
-            {stats.map((s, i) => (
-              <div key={s.label} className={`flex flex-col gap-1 px-5 py-5 sm:px-8 sm:py-7 ${i % 2 ? "border-l border-border" : ""} ${i > 1 ? "border-t border-border lg:border-t-0" : ""} ${i === 2 ? "lg:border-l" : ""}`}>
-                <dt className="order-2 text-sm text-muted-foreground">{s.label}</dt>
-                <dd className="font-display text-3xl font-medium tabular-nums tracking-display sm:text-4xl"><AnimatedNumber value={s.value} /></dd>
-              </div>
-            ))}
-          </dl>
+        <HeroCards />
+
+        {/* «Сторис» как на sberbank.ru: плитки-суперэллипсы с иллюстрациями */}
+        <motion.nav variants={stagger(0.05, 0.3)} initial="hidden" animate="show" aria-label="Быстрый доступ"
+          className="scrollbar-none -mx-4 mt-12 flex gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:mt-16 sm:justify-center sm:gap-6 sm:px-0">
+          {STORIES.map(({ to, label, img, icon: Icon, tone }) => (
+            <motion.div key={to} variants={fadeUp} className="w-20 shrink-0">
+              <motion.div {...lift}>
+                <Link to={to} className="group flex flex-col gap-2 text-left outline-none">
+                  <span className={cn("relative flex size-20 items-center justify-center overflow-hidden rounded-xl shadow-card ring-2 ring-white/70 transition-shadow duration-base group-hover:shadow-float group-focus-visible:ring-ring dark:ring-white/10", tone)}>
+                    {img ? <img src={img} alt="" className="size-full object-cover" loading="lazy" /> : Icon && (<>
+                      <span aria-hidden className="absolute inset-0 bg-sheen" /><Icon className="relative size-8 text-white drop-shadow-sm" />
+                    </>)}
+                  </span>
+                  <span className="text-sm font-semibold leading-tight">{label}</span>
+                </Link>
+              </motion.div>
+            </motion.div>
+          ))}
+        </motion.nav>
+
+        <motion.section {...inView} className="mt-12 grid grid-cols-2 gap-3 sm:mt-16 sm:gap-4 lg:grid-cols-4">
+          {stats.map((s, i) => (
+            <div key={s.label} className={cn("relative flex flex-col gap-1 overflow-hidden rounded-xl px-5 py-5 shadow-card sm:px-6 sm:py-6", i === 0 ? "bg-brand-deep text-white" : "bg-card")}>
+              {i === 0 && <span aria-hidden className="absolute inset-0 bg-sheen" />}
+              <dd className="relative font-display text-4xl font-semibold tabular-nums tracking-hero sm:text-5xl"><AnimatedNumber value={s.value} /></dd>
+              <dt className={cn("relative text-sm", i === 0 ? "text-white/80" : "text-muted-foreground")}>{s.label}</dt>
+            </div>
+          ))}
         </motion.section>
 
-        <section className="mt-12 sm:mt-16">
-          <motion.h2 {...inView} className="mb-5 text-balance font-display text-2xl font-medium tracking-display sm:mb-6 sm:text-3xl">Три места системы</motion.h2>
-          <motion.div variants={stagger(0.08)} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }} className="grid gap-3 sm:gap-4 md:grid-cols-3">
-            {ZONES.map(({ to, art: Art, title, text, device }) => (
+        <section className="mt-16 sm:mt-24">
+          <motion.h2 {...inView} className="mb-6 text-balance text-center font-display text-3xl font-semibold tracking-hero sm:mb-10 sm:text-5xl">Три места системы</motion.h2>
+          <motion.div variants={stagger(0.08)} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.15 }} className="grid gap-3 sm:gap-4 md:grid-cols-3">
+            {ZONES.map(({ to, img, title, text, device }) => (
               <motion.div key={to} variants={fadeUp}>
                 <motion.div {...lift} className="h-full">
-                  <Link to={to} className="group flex h-full flex-col gap-4 rounded-lg bg-card p-3 shadow-card outline-none transition-shadow duration-base hover:shadow-float focus-visible:ring-2 focus-visible:ring-ring sm:rounded-xl sm:p-4">
-                    <Art />
-                    <div className="flex flex-1 flex-col gap-1.5 px-1">
-                      <h3 className="font-display text-xl font-medium tracking-display">{title}</h3>
+                  <Link to={to} className="group flex h-full flex-col gap-4 rounded-2xl bg-card p-2 pb-4 shadow-card outline-none transition-shadow duration-base hover:shadow-float focus-visible:ring-2 focus-visible:ring-ring">
+                    <span className="block aspect-4/3 overflow-hidden rounded-xl"><img src={img} alt="" loading="lazy" className="size-full object-cover transition-transform duration-slow group-hover:scale-105" /></span>
+                    <div className="flex flex-1 flex-col gap-1.5 px-3">
+                      <h3 className="font-display text-xl font-semibold tracking-display">{title}</h3>
                       <p className="text-pretty text-sm text-muted-foreground">{text}</p>
                     </div>
-                    <div className="flex items-center justify-between gap-2 border-t border-border px-1 pt-3 text-sm text-muted-foreground">
+                    <div className="flex items-center justify-between gap-2 px-3 text-sm text-muted-foreground">
                       <span className="truncate">{device}</span>
-                      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface text-foreground transition-colors duration-fast group-hover:bg-primary group-hover:text-primary-foreground"><ArrowRight className="size-4" /></span>
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface text-foreground transition-colors duration-fast group-hover:bg-primary group-hover:text-primary-foreground"><ArrowRight className="size-4" /></span>
                     </div>
                   </Link>
                 </motion.div>
@@ -118,33 +144,38 @@ export const HomePage = () => {
           </motion.div>
         </section>
 
-        <motion.section {...inView} className="mt-12 grid gap-6 rounded-lg bg-card p-5 shadow-card sm:mt-16 sm:rounded-xl sm:p-8 md:grid-cols-5 md:gap-10">
-          <div className="flex flex-col items-center gap-3 md:col-span-2 md:items-start">
-            <div className="rounded-lg bg-white p-4 shadow-card"><QRCodeSVG value={absoluteUrl(routes.worker)} size={168} marginSize={0} /></div>
-            <p className="text-center text-sm text-muted-foreground md:text-left">Наведите камеру телефона — откроется пропуск</p>
+        <motion.section {...inView} className="mt-16 grid gap-8 rounded-3xl bg-card/85 p-5 shadow-card backdrop-blur-xl sm:mt-24 sm:p-10 md:grid-cols-5 md:gap-12">
+          <div className="flex flex-col items-center gap-4 md:col-span-2">
+            <div className="w-full max-w-60 rounded-2xl bg-white p-4 shadow-float ring-1 ring-border"><StyledQr value={absoluteUrl(routes.worker)} label="QR со ссылкой на пропуск" /></div>
+            <p className="max-w-60 text-center text-sm text-muted-foreground">Наведите камеру телефона — откроется пропуск</p>
           </div>
           <div className="min-w-0 md:col-span-3">
-            <h2 className="text-balance font-display text-2xl font-medium tracking-display sm:text-3xl">Пощупать за две минуты</h2>
-            <ol className="mt-5 flex flex-col">
+            <h2 className="text-balance font-display text-3xl font-semibold tracking-hero sm:text-4xl">Пощупать за две минуты</h2>
+            <ol className="mt-6 flex flex-col gap-3">
               {[
-                <>Привяжите телефон кодом {DEMO_INVITES.map((c, i) => <span key={c}>{i ? " или " : " "}<code className="rounded-xs bg-surface px-1.5 py-0.5 font-mono text-sm text-foreground">{c}</code></span>)}. Или заведите сотрудника в админке и отсканируйте его приглашение.</>,
+                <>Привяжите телефон кодом {DEMO_INVITES.map((c, i) => <span key={c}>{i ? " или " : " "}<code className="rounded-xs bg-surface px-2 py-0.5 font-mono text-sm text-foreground">{c}</code></span>)}. Или заведите сотрудника в админке и отсканируйте его приглашение.</>,
                 <>Откройте киоск на ноутбуке и покажите QR с телефона. Второго устройства нет — нажмите «Демо» на киоске.</>,
                 <>В демо-пульте попробуйте обмануть систему: повтор QR, старый скриншот, подделка, чужое лицо, фото.</>,
               ].map((t, i) => (
-                <li key={i} className="flex gap-4 border-t border-border py-4 first:border-t-0 first:pt-0 last:pb-0">
-                  <span className="w-7 shrink-0 font-display text-lg font-medium tabular-nums text-brand">0{i + 1}</span>
-                  <span className="min-w-0 text-pretty text-base text-muted-foreground">{t}</span>
+                <li key={i} className="flex gap-4 rounded-xl bg-muted p-4">
+                  <span className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-brand-deep font-display text-lg font-semibold tabular-nums text-white">
+                    <span aria-hidden className="absolute inset-0 bg-sheen" /><span className="relative">{i + 1}</span>
+                  </span>
+                  <span className="min-w-0 self-center text-pretty text-base text-foreground/80">{t}</span>
                 </li>
               ))}
             </ol>
           </div>
         </motion.section>
-
-        <footer className="mt-10 flex flex-col items-center justify-between gap-2 px-1 text-sm text-muted-foreground sm:flex-row">
-          <span>Хакатон «СберБизнесВайб» · 2026</span>
-          <span>Данные живут только в этом браузере</span>
-        </footer>
       </main>
+
+      {/* Подвал как у Сбера: белая панель со скруглённым верхом */}
+      <footer className="mt-10 rounded-t-3xl bg-card px-4 pb-safe shadow-card sm:px-6">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 py-8 text-sm text-muted-foreground sm:flex-row">
+          <Logo sub="Хакатон «СберБизнесВайб» · 2026" />
+          <span>Данные живут только в этом браузере</span>
+        </div>
+      </footer>
     </div>
   );
 };

@@ -1,10 +1,16 @@
 import { cn } from "@/shared/lib";
 
-/** Знак: плитка в фирменном градиенте Сбера с галочкой-проходом + слово. */
+/**
+ * Знак «Проходной»: суперэллипс с конусом брендбука Сбера и галочкой-проходом.
+ * Мягкость — конус размыт внутри маски, сверху блик (bg-sheen) и тонкая внутренняя подсветка.
+ */
 export const LogoMark = ({ className }: { className?: string }) => (
-  <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-sm bg-brand-gradient", className)}>
-    <svg viewBox="0 0 24 24" className="size-4.5 text-white" fill="none" stroke="currentColor" strokeWidth="2.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M4 12h4l2.5 4.5L15 6.5" /><path d="M17 12h3" />
+  <span className={cn("relative isolate flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-sm shadow-glow", className)}>
+    <span aria-hidden className="absolute -inset-1/2 bg-brand-conic blur-sm" />
+    <span aria-hidden className="absolute inset-0 bg-sheen opacity-70" />
+    <span aria-hidden className="absolute inset-0 rounded-sm ring-1 ring-inset ring-white/25" />
+    <svg viewBox="0 0 24 24" className="relative size-3/5 text-white drop-shadow-sm" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
     </svg>
   </span>
 );
@@ -14,7 +20,7 @@ export const Logo = ({ className, compact, sub }: { className?: string; compact?
     <LogoMark />
     {!compact && (
       <span className="flex min-w-0 flex-col leading-none">
-        <span className="truncate font-display text-lg font-medium tracking-display">Проходная</span>
+        <span className="truncate font-display text-lg font-semibold tracking-display">Проходная</span>
         {sub && <span className="mt-0.5 truncate text-xs text-muted-foreground">{sub}</span>}
       </span>
     )}

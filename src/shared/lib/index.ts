@@ -5,3 +5,4 @@ export * from "./b64";
 export * from "./deviceKey";
 export * from "./passQr";
 export * from "./sound";
+export * from "./qrShape";

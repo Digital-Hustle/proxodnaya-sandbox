@@ -1,7 +1,6 @@
-import { QRCodeSVG } from "qrcode.react";
 import { Copy, ExternalLink } from "lucide-react";
 import type { Worker } from "@/shared/api";
-import { Button, toast } from "@/shared/ui";
+import { Button, StyledQr, toast } from "@/shared/ui";
 import { inviteLink } from "../lib/invite";
 
 export const InviteCard = ({ w }: { w: Worker }) => {
@@ -9,7 +8,7 @@ export const InviteCard = ({ w }: { w: Worker }) => {
   const link = inviteLink(w);
   return (
     <div className="flex flex-col items-center gap-5 text-center">
-      <div className="w-full max-w-56 rounded-lg bg-white p-4 shadow-card"><QRCodeSVG value={link} size={224} marginSize={0} className="h-auto w-full" /></div>
+      <div className="w-full max-w-60 rounded-xl bg-white p-4 shadow-card ring-1 ring-border"><StyledQr value={link} label="QR-приглашение" className="w-full" /></div>
       <div>
         <div className="text-sm text-muted-foreground">Код приглашения</div>
         <div className="mt-1 font-mono text-3xl font-medium tracking-widest">{w.inviteCode}</div>

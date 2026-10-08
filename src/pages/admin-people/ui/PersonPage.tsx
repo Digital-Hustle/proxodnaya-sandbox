@@ -30,7 +30,7 @@ export const PersonPage = () => {
         <div className="flex min-w-0 flex-1 items-center gap-4">
           <Avatar name={w.fullName} photo={w.photo} className="size-16 text-xl sm:size-20 sm:text-2xl" />
           <div className="min-w-0">
-            <h1 className="text-balance font-display text-2xl font-medium tracking-display sm:text-3xl">{w.fullName}</h1>
+            <h1 className="text-balance font-display text-2xl font-semibold tracking-display sm:text-3xl">{w.fullName}</h1>
             <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground"><span>{w.position} · {w.contractor}</span><WorkerStatusBadge w={w} inside={inside} /></div>
           </div>
         </div>

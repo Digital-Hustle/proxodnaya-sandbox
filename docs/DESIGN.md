@@ -9,16 +9,16 @@
 
 | Токен | Класс | Светлая | Тёмная | Контраст с -foreground (свет / тём.) |
 |---|---|---|---|---|
-| `background` | `bg-background` / `text-background` | `#EBEFEE` | `#121417` |  |
+| `background` | `bg-background` / `text-background` | `#E2F5E9` | `#121417` |  |
 | `foreground` | `bg-foreground` / `text-foreground` | `#172419` | `#EDF1EF` |  |
 | `card` | `bg-card` / `text-card` | `#FFFFFF` | `#1A1D21` | 16.12 / 14.84 |
 | `popover` | `bg-popover` / `text-popover` | `#FFFFFF` | `#212429` | 16.12 / 13.66 |
-| `surface` | `bg-surface` / `text-surface` | `#E3E9E7` | `#212429` | 13.11 / 13.66 |
-| `surface-hover` | `bg-surface-hover` / `text-surface-hover` | `#D9E0DE` | `#292D33` |  |
-| `muted` | `bg-muted` / `text-muted` | `#F1F4F3` | `#212429` | 5.39 / 5.87 |
-| `border` | `bg-border` / `text-border` | `#E3E9E7` | `#292D33` |  |
-| `border-strong` | `bg-border-strong` / `text-border-strong` | `#C5CFCC` | `#33383F` |  |
-| `input` | `bg-input` / `text-input` | `#C5CFCC` | `#33383F` |  |
+| `surface` | `bg-surface` / `text-surface` | `#EDF8F1` | `#212429` | 14.81 / 13.66 |
+| `surface-hover` | `bg-surface-hover` / `text-surface-hover` | `#D6F2E1` | `#292D33` |  |
+| `muted` | `bg-muted` / `text-muted` | `#F5FBF7` | `#212429` | 5.69 / 5.87 |
+| `border` | `bg-border` / `text-border` | `#D6F2E1` | `#292D33` |  |
+| `border-strong` | `bg-border-strong` / `text-border-strong` | `#A9DDC0` | `#33383F` |  |
+| `input` | `bg-input` / `text-input` | `#A9DDC0` | `#33383F` |  |
 | `ring` | `bg-ring` / `text-ring` | `#21A038` | `#3FC86A` |  |
 | `primary` | `bg-primary` / `text-primary` | `#0E8429` | `#3FC86A` | 4.83 / 8.74 |
 | `primary-hover` | `bg-primary-hover` / `text-primary-hover` | `#0B7323` | `#7EE29A` |  |
@@ -58,6 +58,7 @@
 | white | `#FFFFFF` |
 | black | `#08130B` |
 | ink | 400 `#8C9590`, 600 `#5C665E`, 700 `#3A453D`, 900 `#172419` |
+| mint | 25 `#F5FBF7`, 50 `#EDF8F1`, 100 `#E2F5E9`, 150 `#D6F2E1`, 200 `#C4EDD6`, 300 `#A9DDC0`, 400 `#86C9A4`, sber1 `#BBF2D5`, sber2 `#D4F7E0`, sber3 `#EEF7FB` |
 | mist | 25 `#F7F9F8`, 50 `#F1F4F3`, 100 `#EBEFEE`, 150 `#E3E9E7`, 200 `#D9E0DE`, 300 `#C5CFCC`, 400 `#A6B1AD` |
 | graphite | 100 `#EDF1EF`, 200 `#D5DBD8`, 400 `#98A19D`, 600 `#454B53`, 700 `#33383F`, 750 `#292D33`, 800 `#212429`, 850 `#1A1D21`, 900 `#121417`, 950 `#0E1013` |
 | green | 50 `#EEF9F0`, 100 `#DDF3E2`, 300 `#7EE29A`, 400 `#3FC86A`, 500 `#21A038`, 600 `#0F7A2E`, 650 `#0E8429`, 700 `#0B7323`, 800 `#0B6B26`, 900 `#103A1F`, 950 `#0B2614` |
@@ -66,7 +67,7 @@
 | red | 100 `#FDECEA`, 300 `#FFB4AB`, 400 `#FF8A80`, 700 `#C9302C`, 800 `#B42318`, 900 `#3D1A1A` |
 | blue | 100 `#E8F0FE`, 400 `#8AB4F8`, 800 `#175CD3`, 900 `#17263D` |
 | slate | 400 `#8FA0B3`, 500 `#6B7C8F` |
-| sber | green `#21A038`, sky `#00ADEE`, blue `#0087CD`, arctic `#42E3B4`, spring `#A0E720`, sun `#FAED00`, mint `#54DC87`, lagoon `#39C0C3` |
+| sber | green `#21A038`, sky `#00ADEE`, blue `#0087CD`, arctic `#42E3B4`, spring `#A0E720`, sun `#FAED00`, mint `#54DC87`, lagoon `#39C0C3`, lime `#64EE61`, cyan `#32B8D3`, deep `#0B5E2A`, ocean `#0A4F6B` |
 
 #### Типографика (шкала Nova; дефолтные размеры Tailwind выключены)
 
@@ -89,8 +90,8 @@
 
 - Сетка 4 px. Для `p-* m-* gap-* space-* inset-*` разрешены шаги: `0` (0 px), `0.5` (2 px), `1` (4 px), `1.5` (6 px), `2` (8 px), `2.5` (10 px), `3` (12 px), `3.5` (14 px), `4` (16 px), `5` (20 px), `6` (24 px), `7` (28 px), `8` (32 px), `10` (40 px), `12` (48 px), `14` (56 px), `16` (64 px), `20` (80 px), `24` (96 px).
 - Высота контролов: `h-control-xs` 32, `h-control-sm` 36, `h-control-md` 44, `h-control-lg` 52, `h-control-xl` 64 px.
-- Радиусы: `rounded-xs` 6, `rounded-sm` 8, `rounded-md` 12, `rounded-lg` 16, `rounded-xl` 24, `rounded-2xl` 32 px, `rounded-full`.
-- Тени: `shadow-xs`, `shadow-card`, `shadow-float`, `shadow-pop` (свои значения в тёмной теме).
+- Радиусы: `rounded-xs` 10, `rounded-sm` 14, `rounded-md` 18, `rounded-lg` 26, `rounded-xl` 34, `rounded-2xl` 44, `rounded-3xl` 56 px, `rounded-full`.
+- Тени: `shadow-xs`, `shadow-card`, `shadow-float`, `shadow-pop`, `shadow-glow` (свои значения в тёмной теме).
 - Safe-area телефона: `pt-safe`, `pb-safe`.
 - Слои: `z-base` 0, `z-raised` 1, `z-sticky` 10, `z-nav` 20, `z-overlay` 50, `z-modal` 60, `z-dropdown` 65, `z-toast` 70, `z-kiosk` 80.
 
@@ -118,3 +119,14 @@
 | toast | durationMs 3600, errorDurationMs 6000 | — |
 | kiosk | resultHoldMs 4000, challengeTimeoutMs 10000 | — |
 <!-- tokens:end -->
+
+## Редизайн v3 — по живым скриншотам sberbank.ru (октябрь 2026)
+
+Сняты стили sberbank.ru/ru/person: мятный градиентный фон `#BBF2D5 → #D4F7E0 → #EEF7FB`, шапка-пилюля 60 px (радиус 20, внутренние элементы 48 px / 16), заголовки SB Sans Display 600 с трекингом ≈ −0.06em, панели 32 px, плитки-иллюстрации 30–40 px, мягкие зелёные тени `rgb(8 92 24 / .15)`, подвал — белая панель со скруглённым верхом.
+
+- **Скругления** — суперэллипс (`corner-shape: squircle`) для всех `rounded-*`, кроме `rounded-full`; радиусы увеличены (`xs 10 … 3xl 56`).
+- **Живой фон** — `<Aurora>` (WebGL, ogl): светлая тема — мята/бирюза/лайм, тёмная — зелёный/бирюза на графите (как «сияние» в СберБанк Онлайн), киоск — `tone="kiosk"`. Скорость и разрешение — `motion.aurora` в tokens.ts.
+- **Шапка** — `HeaderBar` + `NavTrack` (мятная дорожка, белая пилюля активного раздела). Тема — не в шапке, а в «Оформлении» (`PreferencesButton` / `ThemePicker`).
+- **Знак** — конус брендбука, размытый внутри суперэллипса + блик (`bg-sheen`).
+- **QR** — `StyledQr` + `shared/lib/qrShape`: модули сливаются в группы, внешние углы групп скруглены, во внутренних — галтели; один `path` без швов. Тёмное на белом, проверено zxing.
+- **Иллюстрации** — `public/art/*.webp` (3D в стилистике плиток Сбера).

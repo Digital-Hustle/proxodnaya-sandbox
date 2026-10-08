@@ -54,7 +54,7 @@ export const AnalyticsPage = () => {
           {kpi.map(({ label, value, fmt }, i) => (
             <div key={label} className={`flex min-w-0 flex-col gap-1 px-4 py-4 sm:px-6 sm:py-6 ${i % 2 ? "border-l border-border" : ""} ${i > 1 ? "border-t border-border lg:border-t-0" : ""} ${i === 2 ? "lg:border-l" : ""}`}>
               <dt className="order-2 truncate text-sm text-muted-foreground">{label}</dt>
-              <dd className="font-display text-3xl font-medium tabular-nums tracking-display sm:text-4xl"><AnimatedNumber value={value} format={fmt} /></dd>
+              <dd className="font-display text-3xl font-semibold tabular-nums tracking-display sm:text-4xl"><AnimatedNumber value={value} format={fmt} /></dd>
             </div>
           ))}
         </dl>
