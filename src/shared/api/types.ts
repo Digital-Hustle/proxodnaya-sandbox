@@ -1,11 +1,13 @@
 // Контракты песочницы. Повторяют docs/API.md основного репо в упрощённом виде.
 export type Decision = "ALLOW" | "DENY" | "MANUAL" | "ERROR";
 export type Direction = "IN" | "OUT";
+/** Режим КПП: AUTO — направление выводится из состояния присутствия (ADR-037), IN/OUT — турникет одного направления. */
+export type CheckpointMode = "AUTO" | Direction;
 export type ReasonCode =
   | "OK" | "QR_MISSING" | "QR_INVALID" | "QR_EXPIRED" | "QR_REUSED" | "DEVICE_UNKNOWN" | "DEVICE_REVOKED" | "DEVICE_MISMATCH"
   | "WORKER_BLOCKED" | "FACE_NOT_FOUND" | "FACE_LOW_QUALITY" | "FACE_MISMATCH" | "LIVENESS_FAILED" | "CHALLENGE_EXPIRED"
   | "NO_SHIFT" | "OUTSIDE_SHIFT_WINDOW" | "PERMIT_EXPIRED" | "NO_ZONE_PERMIT" | "ALREADY_INSIDE" | "NOT_INSIDE"
-  | "TEMP_LOCKED" | "MANUAL_GUARD" | "SYSTEM_ERROR";
+  | "TEMP_LOCKED" | "MANUAL_GUARD" | "SYSTEM_ERROR" | "REPEAT_SCAN";
 
 export type WorkerStatus = "active" | "blocked";
 
@@ -24,7 +26,7 @@ export type Worker = {
 
 export type Device = { id: string; workerId: string; publicKey: string; createdAt: number; revokedAt?: number; label: string };
 export type Zone = { id: string; name: string; capacity: number };
-export type Checkpoint = { id: string; name: string; zoneId: string };
+export type Checkpoint = { id: string; name: string; zoneId: string; mode?: CheckpointMode };
 export type Shift = { id: string; workerId: string; day: string; start: string; end: string };
 
 export type Attempt = {
@@ -63,6 +65,10 @@ export type Settings = {
   requireShift: boolean;
   /** Песочница: что вернёт «сверка лица» — настоящей биометрии здесь нет. */
   demoFace: "match" | "mismatch";
+  /** ADR-037: повторное предъявление после успешного прохода раньше этого срока отклоняется (REPEAT_SCAN). */
+  repeatScanCooldownSec?: number;
+  /** ADR-037: незакрытый вход старше этого срока считается «забытым выходом» — следующий скан снова вход. */
+  presenceTtlHours?: number;
 };
 
 export type Db = {

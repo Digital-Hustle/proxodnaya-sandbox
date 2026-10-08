@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import { Check, Monitor, Moon, Palette, Sun } from "lucide-react";
 import { cn } from "@/shared/lib";
-import { press, spring } from "@/shared/config/motion";
+import { press, popIn } from "@/shared/config/motion";
 import { Dialog } from "./Dialog";
 import { useThemeMode, type ThemeMode } from "./ThemeSwitcher";
 
@@ -25,7 +25,7 @@ export const ThemePicker = ({ className }: { className?: string }) => {
             <span className={cn("relative flex h-16 items-end overflow-hidden rounded-md p-2", preview)}>
               <span className="h-5 w-3/4 rounded-xs bg-card shadow-xs" />
               {on && (
-                <motion.span layoutId="theme-check" transition={spring.pop} className="absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                <motion.span variants={popIn} initial="hidden" animate="show" className="absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
                   <Check className="size-3.5" strokeWidth={3} />
                 </motion.span>
               )}
@@ -47,7 +47,7 @@ export const PreferencesButton = ({ className, children }: { className?: string;
         className={cn("flex size-control-md shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors duration-fast hover:bg-surface hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring", className)}>
         <Palette className="size-5" />
       </motion.button>
-      <Dialog open={open} onClose={() => setOpen(false)} title="Оформление" description="Сохраняется в этом браузере. Киоск всегда тёмный — чтобы не слепить у турникета.">
+      <Dialog open={open} onClose={() => setOpen(false)} title="Оформление" description="Настройка сохраняется на этом устройстве. Киоск всегда в тёмной теме.">
         <ThemePicker />
         {children}
       </Dialog>

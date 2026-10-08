@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Link } from "react-router";
 import { motion } from "motion/react";
 import { ArrowRight, ScanLine, ChevronRight, ScrollText, BarChart3, Sparkles, ShieldCheck } from "lucide-react";
-import { Logo, LogoMark, Status, Button, AnimatedNumber, Aurora, HeaderBar, NavTrack, PreferencesButton, StyledQr } from "@/shared/ui";
+import { Logo, LogoMark, Status, Button, AnimatedNumber, Aurora, HeaderBar, PreferencesButton, StyledQr } from "@/shared/ui";
 import { DEMO_INVITES, useDb, presenceNow, dailyStats } from "@/shared/api";
 import { todayKey, cn } from "@/shared/lib";
 import { routes, absoluteUrl } from "@/shared/const/router";
@@ -11,14 +11,14 @@ import { fadeUp, stagger, lift, spring, inView, tween, duration } from "@/shared
 const art = (name: string) => `${import.meta.env.BASE_URL}art/${name}.webp`;
 
 const ZONES = [
-  { to: routes.kiosk, img: art("kiosk"), title: "Киоск на проходной", text: "Скан QR, проверка живости и вердикт за пару секунд", device: "Ноутбук или планшет с камерой" },
-  { to: routes.worker, img: art("phone"), title: "Телефон рабочего", text: "Код меняется каждые 30 секунд и работает без интернета", device: "Откройте на телефоне" },
-  { to: routes.admin, img: art("admin"), title: "Админка прораба", text: "Кто на объекте, журнал, смены, аналитика и помощник", device: "Компьютер или планшет" },
+  { to: routes.kiosk, img: art("kiosk"), title: "Киоск на проходной", text: "Проверка QR-пропуска и лица, решение о допуске за 2–3 секунды", device: "Ноутбук или планшет с камерой" },
+  { to: routes.worker, img: art("phone"), title: "Пропуск сотрудника", text: "Динамический QR-код обновляется каждые 30 секунд и работает офлайн", device: "Смартфон" },
+  { to: routes.admin, img: art("admin"), title: "Кабинет руководителя", text: "Присутствие на объекте, журнал проходов, смены, аналитика и помощник", device: "Компьютер или планшет" },
 ];
 
 const STORIES = [
   { to: routes.kiosk, label: "Киоск", img: art("kiosk") },
-  { to: routes.worker, label: "Пропуск в телефоне", img: art("phone") },
+  { to: routes.worker, label: "Пропуск", img: art("phone") },
   { to: routes.admin, label: "Обстановка", img: art("admin") },
   { to: routes.adminJournal, label: "Журнал проходов", icon: ScrollText, tone: "bg-brand-deep" },
   { to: routes.adminAnalytics, label: "Аналитика", icon: BarChart3, tone: "bg-brand" },
@@ -43,9 +43,9 @@ const HeroCards = () => (
       whileHover={{ rotate: -3, y: -6 }}
       className="absolute bottom-2 left-3 flex w-44 flex-col overflow-hidden rounded-2xl bg-card shadow-pop sm:bottom-0 sm:left-4 sm:w-60">
       <div className="flex-1 bg-linear-to-br from-sber-lime/60 via-sber-mint/30 to-transparent p-5 pb-10">
-        <p className="font-display text-lg font-semibold leading-tight tracking-display text-foreground sm:text-xl">Показал QR — киоск сверил лицо — проход</p>
+        <p className="font-display text-lg font-semibold leading-tight tracking-display text-foreground sm:text-xl">Проход по QR-коду и сверке лица</p>
       </div>
-      <Link to={routes.kiosk} className="flex items-center gap-1 bg-card/80 px-5 py-3.5 text-sm text-muted-foreground transition-colors duration-fast hover:text-foreground">Попробовать на киоске<ChevronRight className="size-4" /></Link>
+      <Link to={routes.kiosk} className="flex items-center gap-1 bg-card/80 px-5 py-3.5 text-sm text-muted-foreground transition-colors duration-fast hover:text-foreground">Открыть киоск<ChevronRight className="size-4" /></Link>
     </motion.div>
   </div>
 );
@@ -58,7 +58,7 @@ export const HomePage = () => {
     { value: onSite, label: "на объекте сейчас" },
     { value: today.allow, label: "проходов сегодня" },
     { value: db.workers.length, label: "человек в базе" },
-    { value: 30, label: "секунд живёт QR" },
+    { value: 30, label: "секунд действует QR" },
   ];
 
   return (
@@ -66,9 +66,11 @@ export const HomePage = () => {
       <Aurora fixed intensity={0.85} />
       <HeaderBar inner="max-w-6xl">
         <Logo className="px-1.5" />
-        <NavTrack className="ml-auto hidden md:block" items={[
-          { to: routes.kiosk, label: "Киоск" }, { to: routes.worker, label: "Телефон" }, { to: routes.admin, label: "Админка" },
-        ]} />
+        <nav aria-label="Разделы" className="ml-auto hidden items-center gap-1 md:flex">
+          {[{ to: routes.kiosk, label: "Киоск" }, { to: routes.worker, label: "Пропуск" }, { to: routes.admin, label: "Кабинет" }].map(({ to, label }) => (
+            <Link key={to} to={to} className="flex h-10 items-center rounded-sm px-4 text-sm font-medium text-muted-foreground outline-none transition-colors duration-fast hover:bg-surface hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">{label}</Link>
+          ))}
+        </nav>
         <div className="ml-auto flex shrink-0 items-center gap-1.5 md:ml-0">
           <PreferencesButton />
           <Link to={routes.kiosk} tabIndex={-1} className="hidden sm:block"><Button variant="brand" className="h-12 rounded-md px-5"><ScanLine />Открыть киоск</Button></Link>
@@ -77,16 +79,16 @@ export const HomePage = () => {
 
       <main className="relative mx-auto max-w-6xl px-4 pb-10 sm:px-6">
         <motion.section variants={stagger(0.07)} initial="hidden" animate="show" className="flex flex-col items-center pt-12 text-center sm:pt-20">
-          <motion.div variants={fadeUp}><Status tone="success" dot className="h-7 bg-card/70 px-3 backdrop-blur-md">Кейс «Проходная» · песочница на моках</Status></motion.div>
+          <motion.div variants={fadeUp}><Status tone="success" dot className="h-7 bg-card/70 px-3 backdrop-blur-md">Кейс «Проходная» · демонстрационный стенд</Status></motion.div>
           <motion.h1 variants={fadeUp} className="mt-6 max-w-5xl text-balance font-display text-4xl font-semibold leading-none tracking-hero sm:text-5xl lg:text-6xl">
-            Проход на стройку без чужих пропусков
+            Контроль доступа на строительный объект
           </motion.h1>
           <motion.p variants={fadeUp} className="mt-5 max-w-2xl text-pretty text-base text-foreground/70 sm:text-lg">
-            Телефон рабочего показывает живой QR, киоск сверяет лицо, прораб видит всё в реальном времени. Бэкенд — моки в браузере: откройте киоск и админку в разных вкладках.
+            Сотрудник предъявляет динамический QR-код, киоск сверяет лицо и сам определяет вход или выход. Руководитель видит обстановку на объекте в реальном времени.
           </motion.p>
           <motion.div variants={fadeUp} className="mt-8 flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:gap-3">
             <Link to={routes.kiosk} tabIndex={-1}><Button variant="brand" size="lg" block className="h-14 rounded-lg px-8"><ScanLine />Открыть киоск</Button></Link>
-            <Link to={routes.admin} tabIndex={-1}><Button size="lg" variant="secondary" block className="h-14 rounded-lg bg-card px-8 shadow-card hover:bg-muted">Админка прораба<ArrowRight /></Button></Link>
+            <Link to={routes.admin} tabIndex={-1}><Button size="lg" variant="secondary" block className="h-14 rounded-lg bg-card px-8 shadow-card hover:bg-muted">Кабинет руководителя<ArrowRight /></Button></Link>
           </motion.div>
         </motion.section>
 
@@ -122,7 +124,7 @@ export const HomePage = () => {
         </motion.section>
 
         <section className="mt-16 sm:mt-24">
-          <motion.h2 {...inView} className="mb-6 text-balance text-center font-display text-3xl font-semibold tracking-hero sm:mb-10 sm:text-5xl">Три места системы</motion.h2>
+          <motion.h2 {...inView} className="mb-6 text-balance text-center font-display text-3xl font-semibold tracking-hero sm:mb-10 sm:text-5xl">Три компонента системы</motion.h2>
           <motion.div variants={stagger(0.08)} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.15 }} className="grid gap-3 sm:gap-4 md:grid-cols-3">
             {ZONES.map(({ to, img, title, text, device }) => (
               <motion.div key={to} variants={fadeUp}>
@@ -147,15 +149,15 @@ export const HomePage = () => {
         <motion.section {...inView} className="mt-16 grid gap-8 rounded-3xl bg-card/85 p-5 shadow-card backdrop-blur-xl sm:mt-24 sm:p-10 md:grid-cols-5 md:gap-12">
           <div className="flex flex-col items-center gap-4 md:col-span-2">
             <div className="w-full max-w-60 rounded-2xl bg-white p-4 shadow-float ring-1 ring-border"><StyledQr value={absoluteUrl(routes.worker)} label="QR со ссылкой на пропуск" /></div>
-            <p className="max-w-60 text-center text-sm text-muted-foreground">Наведите камеру телефона — откроется пропуск</p>
+            <p className="max-w-60 text-center text-sm text-muted-foreground">Отсканируйте камерой смартфона, чтобы открыть пропуск</p>
           </div>
           <div className="min-w-0 md:col-span-3">
-            <h2 className="text-balance font-display text-3xl font-semibold tracking-hero sm:text-4xl">Пощупать за две минуты</h2>
+            <h2 className="text-balance font-display text-3xl font-semibold tracking-hero sm:text-4xl">Как проверить стенд</h2>
             <ol className="mt-6 flex flex-col gap-3">
               {[
-                <>Привяжите телефон кодом {DEMO_INVITES.map((c, i) => <span key={c}>{i ? " или " : " "}<code className="rounded-xs bg-surface px-2 py-0.5 font-mono text-sm text-foreground">{c}</code></span>)}. Или заведите сотрудника в админке и отсканируйте его приглашение.</>,
-                <>Откройте киоск на ноутбуке и покажите QR с телефона. Второго устройства нет — нажмите «Демо» на киоске.</>,
-                <>В демо-пульте попробуйте обмануть систему: повтор QR, старый скриншот, подделка, чужое лицо, фото.</>,
+                <>Активируйте пропуск кодом приглашения {DEMO_INVITES.map((c, i) => <span key={c}>{i ? " или " : " "}<code className="rounded-xs bg-surface px-2 py-0.5 font-mono text-sm text-foreground">{c}</code></span>)}. Можно также добавить сотрудника в кабинете и отсканировать его приглашение.</>,
+                <>Откройте киоск на ноутбуке и предъявьте QR-код со смартфона. Система сама определит вход или выход. Без второго устройства используйте кнопку «Демо».</>,
+                <>Проверьте защиту в демо-пульте: повторный и просроченный QR, подделка, другой человек в кадре, фотография вместо лица.</>,
               ].map((t, i) => (
                 <li key={i} className="flex gap-4 rounded-xl bg-muted p-4">
                   <span className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-brand-deep font-display text-lg font-semibold tabular-nums text-white">
@@ -173,7 +175,7 @@ export const HomePage = () => {
       <footer className="mt-10 rounded-t-3xl bg-card px-4 pb-safe shadow-card sm:px-6">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 py-8 text-sm text-muted-foreground sm:flex-row">
           <Logo sub="Хакатон «СберБизнесВайб» · 2026" />
-          <span>Данные живут только в этом браузере</span>
+          <span>Демо-данные хранятся локально в браузере</span>
         </div>
       </footer>
     </div>

@@ -67,8 +67,7 @@
   --gradient-sheen: radial-gradient(90% 70% at 25% 10%, rgb(255 255 255 / 0.55) 0%, rgb(255 255 255 / 0) 60%);
   --gradient-page: linear-gradient(160deg, #BBF2D5 0%, #D4F7E0 45%, #EEF7FB 100%);
   --gradient-page-dark: radial-gradient(120% 60% at 50% 0%, rgb(33 160 56 / 0.18) 0%, rgb(20 163 168 / 0.08) 40%, transparent 75%), linear-gradient(#121417, #121417);
-  --gradient-track: linear-gradient(90deg, #C4EDD6 0%, #E2F5E9 55%, #EEF7FB 100%);
-  --gradient-track-dark: linear-gradient(90deg, #292D33 0%, #212429 100%);
+  --gradient-vignette: radial-gradient(closest-side at 50% 42%, rgb(0 0 0 / 0) 40%, rgb(0 0 0 / 0.5) 82%, rgb(0 0 0 / 0.78) 100%);
   --gradient-glow: radial-gradient(60% 50% at 50% 0%, rgb(84 220 135 / 0.22) 0%, rgb(57 192 195 / 0.10) 45%, transparent 75%);
   --gradient-glow-dark: radial-gradient(60% 50% at 50% 0%, rgb(63 200 106 / 0.14) 0%, rgb(57 192 195 / 0.06) 45%, transparent 75%);
   --elev-xs: 0 1px 2px rgb(23 36 25 / 0.06);
@@ -76,6 +75,7 @@
   --elev-float: 0 2px 6px rgb(8 92 24 / 0.05), 0 18px 44px -18px rgb(8 92 24 / 0.28);
   --elev-pop: 0 4px 12px rgb(8 92 24 / 0.06), 0 32px 72px -24px rgb(8 92 24 / 0.36);
   --elev-glow: 0 12px 30px -8px rgb(33 160 56 / 0.45);
+  --elev-scrim: 0 0 0 100vmax rgb(0 0 0 / 0.6);
   --radius: 18px; /* для shadcn-компонентов, которые считают от --radius */
 }
 
@@ -140,8 +140,8 @@
   --elev-float: inset 0 0 0 1px rgb(255 255 255 / 0.06), 0 16px 40px -16px rgb(0 0 0 / 0.7);
   --elev-pop: inset 0 0 0 1px rgb(255 255 255 / 0.07), 0 28px 64px -16px rgb(0 0 0 / 0.8);
   --elev-glow: 0 12px 34px -8px rgb(63 200 106 / 0.4);
+  --elev-scrim: 0 0 0 100vmax rgb(0 0 0 / 0.6);
   --gradient-page: var(--gradient-page-dark);
-  --gradient-track: var(--gradient-track-dark);
   --gradient-glow: var(--gradient-glow-dark);
 }
 
@@ -279,6 +279,7 @@
   --shadow-float: var(--elev-float);
   --shadow-pop: var(--elev-pop);
   --shadow-glow: var(--elev-glow);
+  --shadow-scrim: var(--elev-scrim);
 }
 
 @utility duration-instant {
@@ -365,8 +366,8 @@
   background-image: var(--gradient-sheen);
 }
 
-@utility bg-track {
-  background-image: var(--gradient-track);
+@utility bg-vignette {
+  background-image: var(--gradient-vignette);
 }
 
 /* фон страниц: мятный градиент Сбера, не уезжает при прокрутке */

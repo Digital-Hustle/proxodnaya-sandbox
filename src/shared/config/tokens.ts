@@ -171,9 +171,8 @@ export const gradient = {
   /** Фон страниц: мятный градиент sberbank.ru */
   page: `linear-gradient(160deg, ${p.mint.sber1} 0%, ${p.mint.sber2} 45%, ${p.mint.sber3} 100%)`,
   "page-dark": `radial-gradient(120% 60% at 50% 0%, rgb(33 160 56 / 0.18) 0%, rgb(20 163 168 / 0.08) 40%, transparent 75%), linear-gradient(${p.graphite[900]}, ${p.graphite[900]})`,
-  /** Дорожка навигации в шапке (как сегменты «Для всех / Для молодёжи» у Сбера) */
-  track: `linear-gradient(90deg, ${p.mint[200]} 0%, ${p.mint[100]} 55%, ${p.mint.sber3} 100%)`,
-  "track-dark": `linear-gradient(90deg, ${p.graphite[750]} 0%, ${p.graphite[800]} 100%)`,
+  /** Виньетка терминала: гасит сияние к краям, фокус — на рамке сканера */
+  vignette: `radial-gradient(closest-side at 50% 42%, rgb(0 0 0 / 0) 40%, rgb(0 0 0 / 0.5) 82%, rgb(0 0 0 / 0.78) 100%)`,
   /** Мягкое мятное свечение фона героя (как на sberbank.ru/person_young) */
   glow: `radial-gradient(60% 50% at 50% 0%, rgb(84 220 135 / 0.22) 0%, rgb(57 192 195 / 0.10) 45%, transparent 75%)`,
   "glow-dark": `radial-gradient(60% 50% at 50% 0%, rgb(63 200 106 / 0.14) 0%, rgb(57 192 195 / 0.06) 45%, transparent 75%)`,
@@ -231,6 +230,8 @@ export const shadow = {
     float: "0 2px 6px rgb(8 92 24 / 0.05), 0 18px 44px -18px rgb(8 92 24 / 0.28)",
     pop: "0 4px 12px rgb(8 92 24 / 0.06), 0 32px 72px -24px rgb(8 92 24 / 0.36)",
     glow: "0 12px 30px -8px rgb(33 160 56 / 0.45)",
+    /** затемнение камеры вокруг рамки сканера на киоске */
+    scrim: "0 0 0 100vmax rgb(0 0 0 / 0.6)",
   },
   dark: {
     xs: "0 0 0 1px rgb(255 255 255 / 0.04)",
@@ -238,6 +239,7 @@ export const shadow = {
     float: "inset 0 0 0 1px rgb(255 255 255 / 0.06), 0 16px 40px -16px rgb(0 0 0 / 0.7)",
     pop: "inset 0 0 0 1px rgb(255 255 255 / 0.07), 0 28px 64px -16px rgb(0 0 0 / 0.8)",
     glow: "0 12px 34px -8px rgb(63 200 106 / 0.4)",
+    scrim: "0 0 0 100vmax rgb(0 0 0 / 0.6)",
   },
 } as const;
 

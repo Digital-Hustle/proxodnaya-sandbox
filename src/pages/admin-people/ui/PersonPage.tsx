@@ -63,7 +63,7 @@ export const PersonPage = () => {
             <Card>
               <CardHeader><CardTitle>Устройства</CardTitle></CardHeader>
               <div className="flex flex-col gap-1 p-2 sm:p-3">
-                {devices.length === 0 && <div className="px-2 py-3 text-sm text-muted-foreground">Телефон ещё не привязан</div>}
+                {devices.length === 0 && <div className="px-2 py-3 text-sm text-muted-foreground">Пропуск ещё не активирован</div>}
                 {devices.map((d) => (
                   <div key={d.id} className="flex min-w-0 items-center gap-3 rounded-md px-2 py-2 text-sm">
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-sm bg-surface text-muted-foreground"><Smartphone className="size-4" /></span>
@@ -76,7 +76,7 @@ export const PersonPage = () => {
           </motion.div>
         </div>
       </div>
-      <Dialog open={invite} onClose={() => setInvite(false)} title="Приглашение" description="Отсканируйте камерой телефона — он привяжется к сотруднику"><InviteCard w={w} /></Dialog>
+      <Dialog open={invite} onClose={() => setInvite(false)} title="Приглашение" description="Отсканируйте камерой смартфона, чтобы активировать пропуск сотрудника"><InviteCard w={w} /></Dialog>
     </motion.div>
   );
 };

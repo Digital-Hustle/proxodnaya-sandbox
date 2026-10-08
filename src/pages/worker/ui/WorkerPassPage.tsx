@@ -51,7 +51,7 @@ export const WorkerPassPage = () => {
         ))}
       </motion.dl>
       <motion.p variants={fadeUp} className="px-2 text-center text-xs text-muted-foreground">
-        {pres ? `Вход в ${hhmm(pres.since)}. Не забудьте отметить выход.` : "Покажите код камере киоска. Скриншот не пройдёт — код живёт 30 секунд и одноразовый."}
+        {pres ? `Вход в ${hhmm(pres.since)}. При выходе предъявите QR-код ещё раз.` : "Предъявите код камере киоска. Код одноразовый и действует 30 секунд, поэтому скриншот не подойдёт."}
       </motion.p>
     </motion.div>
   );

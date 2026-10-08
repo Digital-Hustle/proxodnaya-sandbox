@@ -47,7 +47,7 @@ export const NewPersonPage = () => {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <PageHeader title="Новый сотрудник" sub="Данные, фото, смена — и приглашение для телефона"
+      <PageHeader title="Новый сотрудник" sub="Профиль, фото, смена и приглашение для активации пропуска"
         actions={<Status tone={elapsed <= 120 ? "success" : "warning"} className="h-8 px-3 text-sm"><Timer /><span className="tabular-nums">{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}</span><span className="opacity-70">/ цель 2:00</span></Status>} />
 
       <ol className="mb-4 grid grid-cols-4 gap-2 sm:mb-5" aria-label="Шаги">
@@ -93,7 +93,7 @@ export const NewPersonPage = () => {
               {step === 1 && <PhotoCapture value={photo} onChange={setPhoto} />}
               {step === 2 && (
                 <div className="flex flex-col gap-5">
-                  <p className="text-sm text-muted-foreground">Смена на сегодня — без неё киоск не пустит.</p>
+                  <p className="text-sm text-muted-foreground">Смена на сегодня. Без неё киоск не допустит сотрудника.</p>
                   <div className="grid grid-cols-2 gap-3 sm:gap-5">
                     <Field label="Начало"><Input type="time" value={shift.start} onChange={(e) => setShift((s) => ({ ...s, start: e.target.value }))} /></Field>
                     <Field label="Конец" error={shift.start >= shift.end ? "Позже начала" : null}><Input type="time" value={shift.end} onChange={(e) => setShift((s) => ({ ...s, end: e.target.value }))} /></Field>

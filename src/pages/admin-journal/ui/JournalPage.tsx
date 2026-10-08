@@ -34,7 +34,7 @@ export const JournalPage = () => {
 
   return (
     <div>
-      <PageHeader title="Журнал проходов" sub="Каждая попытка: кто, где, решение и почему. Фильтры сохраняются в адресе" actions={<Button variant="secondary" onClick={download}><Download />Скачать CSV</Button>} />
+      <PageHeader title="Журнал проходов" sub="Все попытки прохода с решением и причиной. Фильтры сохраняются в адресе страницы" actions={<Button variant="secondary" onClick={download}><Download />Скачать CSV</Button>} />
       <div className="mb-3 grid gap-2 sm:mb-4 sm:grid-cols-3 lg:grid-cols-5">
         <div className="min-w-0 sm:col-span-3 lg:col-span-2"><Input icon={<Search />} value={q} onChange={(e) => set("q", e.target.value)} placeholder="Сотрудник или причина" aria-label="Поиск" className="bg-card" /></div>
           <Select aria-label="День" value={day} onChange={(v) => set("day", v)} className="bg-card"

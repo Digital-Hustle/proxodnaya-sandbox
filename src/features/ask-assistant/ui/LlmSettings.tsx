@@ -16,15 +16,18 @@ export const LlmSettings = ({ open, onClose }: { open: boolean; onClose: () => v
   const [model, setModel] = useState(cur?.model ?? "");
   const [apiKey, setApiKey] = useState(cur?.apiKey ?? "");
   return (
-    <Dialog open={open} onClose={onClose} title="Модель помощника">
+    <Dialog open={open} onClose={onClose} title="Языковая модель" description="Подходит любой OpenAI-совместимый API с поддержкой вызова инструментов">
       <div className="flex flex-col gap-4">
-        <p className="text-sm text-muted-foreground">Любой OpenAI-совместимый API с вызовом инструментов. Без настройки помощник отвечает правилами — тоже только по данным.</p>
-        <div className="flex flex-wrap gap-2">{PRESETS.map((p) => <Button key={p.name} size="sm" variant="outline" onClick={() => { setBaseUrl(p.baseUrl); setModel(p.model); }}>{p.name}</Button>)}</div>
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-medium">Шаблоны</span>
+          <div className="flex flex-wrap gap-2">{PRESETS.map((p) => <Button key={p.name} size="sm" variant="outline" onClick={() => { setBaseUrl(p.baseUrl); setModel(p.model); }}>{p.name}</Button>)}</div>
+        </div>
         <Field label="Base URL"><Input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://…/v1" /></Field>
         <Field label="Модель"><Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="deepseek-chat" /></Field>
-        <Field label="Ключ API" hint="Остаётся только в этом браузере. Через прокси стенда ключ не нужен."><Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-…" autoComplete="off" /></Field>
-        <div className="flex justify-between gap-2 pt-2">
-          <Button variant="ghost" onClick={() => { assistant.saveLlm(null); toast.info("Помощник работает без модели"); onClose(); }}>Отключить</Button>
+        <Field label="Ключ API" hint="Хранится только в этом браузере. При работе через прокси не требуется."><Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-…" autoComplete="off" /></Field>
+        <p className="rounded-md bg-muted px-3 py-2.5 text-sm text-muted-foreground">Без модели помощник отвечает по встроенным правилам — также только по данным системы.</p>
+        <div className="flex justify-between gap-2 pt-1">
+          <Button variant="ghost" onClick={() => { assistant.saveLlm(null); toast.info("Модель отключена, работают правила"); onClose(); }}>Отключить</Button>
           <Button disabled={!baseUrl || !model} onClick={() => { assistant.saveLlm({ baseUrl, model, apiKey }); toast.success("Модель подключена"); onClose(); }}>Сохранить</Button>
         </div>
       </div>

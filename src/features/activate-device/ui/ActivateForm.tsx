@@ -20,10 +20,10 @@ export const ActivateForm = ({ initialCode = "", payload, onDone }: { initialCod
     setBusy(true); setError(null);
     try {
       const w = await api.activateDevice(c, payload);
-      toast.success(`Телефон привязан: ${w.fullName}`);
+      toast.success(`Пропуск активирован: ${w.fullName}`);
       onDone();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Не получилось");
+      setError(e instanceof Error ? e.message : "Не удалось активировать пропуск");
     } finally { setBusy(false); }
   };
 
@@ -33,7 +33,7 @@ export const ActivateForm = ({ initialCode = "", payload, onDone }: { initialCod
     <div className="flex w-full flex-col items-center gap-6">
       <div className="text-center">
         <h1 className="font-display text-2xl font-semibold tracking-display sm:text-3xl">Код приглашения</h1>
-        <p className="mt-2 text-balance text-base text-muted-foreground">6 символов — из QR или от прораба</p>
+        <p className="mt-2 text-balance text-base text-muted-foreground">6 символов из приглашения или от руководителя</p>
       </div>
       <motion.div onClick={() => input.current?.focus()} animate={error ? { x: [0, -10, 10, -6, 6, 0] } : { x: 0 }} transition={tween.base} className="relative flex w-full max-w-xs gap-1.5 sm:gap-2">
         {Array.from({ length: LEN }, (_, i) => {
@@ -51,7 +51,7 @@ export const ActivateForm = ({ initialCode = "", payload, onDone }: { initialCod
           className="absolute inset-0 text-base opacity-0" />
       </motion.div>
       {error && <p role="alert" className="max-w-xs text-center text-sm text-danger">{error}</p>}
-      <Button size="lg" block className="max-w-xs" disabled={code.length !== LEN || busy} onClick={() => submit()}>{busy ? <Spinner /> : "Привязать телефон"}</Button>
+      <Button size="lg" block className="max-w-xs" disabled={code.length !== LEN || busy} onClick={() => submit()}>{busy ? <Spinner /> : "Активировать пропуск"}</Button>
       <div className="flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground">
         <span>Демо-коды:</span>
         {DEMO_INVITES.map((c) => (

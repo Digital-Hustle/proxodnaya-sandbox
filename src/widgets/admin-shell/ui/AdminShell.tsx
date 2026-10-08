@@ -2,10 +2,10 @@ import { useState } from "react";
 import { NavLink, Link, Outlet, useLocation, useNavigate } from "react-router";
 import { motion } from "motion/react";
 import { LayoutGrid, Users, ScrollText, CalendarClock, BarChart3, Sparkles, Settings, MoreHorizontal, ScanLine, Home, ChevronRight } from "lucide-react";
-import { Logo, ThemePicker, PreferencesButton, OfflineBanner, Dialog, Button, Aurora, HeaderBar, NavTrack } from "@/shared/ui";
+import { Logo, ThemePicker, PreferencesButton, OfflineBanner, Dialog, Button, Aurora, HeaderBar, NavTrack, TrackIndicator, useTrackIndicator } from "@/shared/ui";
 import { routes } from "@/shared/const/router";
 import { cn } from "@/shared/lib";
-import { pageIn, press, spring } from "@/shared/config/motion";
+import { pageIn, press } from "@/shared/config/motion";
 
 const NAV = [
   { to: routes.admin, label: "Обстановка", short: "Сводка", icon: LayoutGrid, end: true },
@@ -24,13 +24,14 @@ export const AdminShell = () => {
   const nav = useNavigate();
   const [more, setMore] = useState(false);
   const inMore = MORE.some((n) => loc.pathname.startsWith(n.to));
+  const ind = useTrackIndicator(loc.pathname);
 
   return (
     <div className="relative isolate min-h-dvh text-foreground">
       <Aurora fixed intensity={0.35} />
       {/* Шапка-пилюля, как на sberbank.ru */}
       <HeaderBar>
-        <Link to={routes.home} className="shrink-0 rounded-md px-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"><Logo sub="админка · песочница" /></Link>
+        <Link to={routes.home} className="shrink-0 rounded-md px-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"><Logo sub="администратор" /></Link>
         <NavTrack items={NAV.map(({ to, label, end }) => ({ to, label, end }))} className="ml-auto hidden lg:block xl:ml-6" />
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
           <PreferencesButton className="hidden lg:flex" />
@@ -46,17 +47,14 @@ export const AdminShell = () => {
 
       {/* Нижняя навигация телефона: плавающая панель */}
       <nav className="fixed inset-x-0 bottom-0 z-nav px-3 pb-safe lg:hidden" aria-label="Разделы">
-        <div className="mx-auto mb-3 flex max-w-md items-stretch gap-1 rounded-xl bg-card/90 p-1.5 shadow-float backdrop-blur-xl">
+        <div ref={ind.ref} className="relative mx-auto mb-3 flex max-w-md items-stretch gap-1 rounded-xl bg-card/90 p-1.5 shadow-float backdrop-blur-xl">
+          <TrackIndicator ind={ind} className="inset-y-1.5 rounded-lg bg-accent" />
           {MOBILE.map(({ to, short, icon: Icon, end }) => (
             <NavLink key={to} to={to} end={end} className={({ isActive }) => cn("relative flex min-h-control-lg min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-md text-xs font-medium outline-none", isActive ? "text-accent-foreground" : "text-muted-foreground")}>
-              {({ isActive }) => (<>
-                {isActive && <motion.span layoutId="admin-tab" transition={spring.snappy} className="absolute inset-0 rounded-lg bg-accent" />}
-                <Icon className="relative z-raised size-5" /><span className="relative z-raised max-w-full truncate px-0.5">{short}</span>
-              </>)}
+              <Icon className="relative z-raised size-5" /><span className="relative z-raised max-w-full truncate px-0.5">{short}</span>
             </NavLink>
           ))}
-          <motion.button type="button" {...press} onClick={() => setMore(true)} className={cn("relative flex min-h-control-lg min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-md text-xs font-medium", inMore ? "text-accent-foreground" : "text-muted-foreground")}>
-            {inMore && <motion.span layoutId="admin-tab" transition={spring.snappy} className="absolute inset-0 rounded-lg bg-accent" />}
+          <motion.button type="button" {...press} onClick={() => setMore(true)} data-active={inMore} className={cn("relative flex min-h-control-lg min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-md text-xs font-medium", inMore ? "text-accent-foreground" : "text-muted-foreground")}>
             <MoreHorizontal className="relative z-raised size-5" /><span className="relative z-raised">Ещё</span>
           </motion.button>
         </div>

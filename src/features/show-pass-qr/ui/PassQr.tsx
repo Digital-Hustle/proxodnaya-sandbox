@@ -8,20 +8,21 @@ export const PassQr = ({ slot = "phone" }: { slot?: string }) => {
   const { qr, left, progress } = usePassQr(slot);
   return (
     <div className="flex w-full flex-col items-center gap-4">
-      <div className="relative aspect-square w-full max-w-72 rounded-xl bg-white p-4 shadow-card ring-1 ring-border">
-        <AnimatePresence mode="popLayout" initial={false}>
+      {/* Старый и новый код лежат в одной grid-ячейке: размер плашки не меняется, центр не сбивается. */}
+      <div className="grid aspect-square w-full max-w-72 overflow-hidden rounded-xl bg-white p-4 shadow-card ring-1 ring-border">
+        <AnimatePresence initial={false}>
           {qr ? (
-            <motion.div key={qr.window} variants={popIn} initial="hidden" animate="show" exit="exit" className="size-full">
+            <motion.div key={qr.window} variants={popIn} initial="hidden" animate="show" exit="exit" className="col-start-1 row-start-1 size-full">
               <StyledQr value={qr.value} label="QR-код пропуска" className="size-full" />
             </motion.div>
-          ) : <Skeleton className="size-full rounded-sm" />}
+          ) : <Skeleton key="sk" className="col-start-1 row-start-1 size-full rounded-sm" />}
         </AnimatePresence>
       </div>
       <div className="flex w-full max-w-72 flex-col gap-2">
         <Progress value={progress} />
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>Новый код через <span className="font-medium tabular-nums text-foreground">{Math.ceil(left)} с</span></span>
-          <span>работает без сети</span>
+          <span>без сети</span>
         </div>
       </div>
     </div>

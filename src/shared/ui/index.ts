@@ -21,3 +21,4 @@ export * from "./Aurora";
 export * from "./StyledQr";
 export * from "./Preferences";
 export * from "./HeaderBar";
+export * from "./TrackIndicator";

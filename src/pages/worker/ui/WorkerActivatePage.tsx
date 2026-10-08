@@ -16,7 +16,7 @@ export const WorkerActivatePage = () => {
         <motion.div variants={fadeUp} initial="hidden" animate="show" className="my-auto rounded-2xl bg-card px-5 py-8 shadow-pop sm:px-8">
           <ActivateForm initialCode={sp.get("c") ?? ""} payload={sp.get("p") ?? undefined} onDone={() => nav(routes.worker, { replace: true })} />
         </motion.div>
-        <p className="mx-auto max-w-xs py-6 text-center text-xs text-muted-foreground">Пароль не нужен: телефон получает собственный ключ, который нельзя скопировать.</p>
+        <p className="mx-auto max-w-xs py-6 text-center text-xs text-muted-foreground">Пароль не требуется: смартфон получает собственный криптографический ключ, который нельзя перенести на другое устройство.</p>
       </div>
     </div>
   );

@@ -19,7 +19,7 @@ export const WorkerShiftsPage = () => {
   return (
     <motion.div variants={stagger()} initial="hidden" animate="show" className="flex flex-col gap-5 pt-2">
       <motion.h1 variants={fadeUp} className="px-1 font-display text-2xl font-semibold tracking-display">Мои смены</motion.h1>
-      {list.length === 0 && <Card><EmptyState icon={<CalendarDays />} title="Смен пока нет" text="Прораб ещё не поставил график" /></Card>}
+      {list.length === 0 && <Card><EmptyState icon={<CalendarDays />} title="Смен пока нет" text="График смен ещё не назначен" /></Card>}
       <div className="flex flex-col gap-2">
         {list.map((s) => (
           <motion.div key={s.id} variants={fadeUp}>

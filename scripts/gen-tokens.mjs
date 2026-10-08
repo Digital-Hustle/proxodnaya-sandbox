@@ -102,7 +102,7 @@ function css() {
     "@utility pb-safe {\n  padding-bottom: env(safe-area-inset-bottom);\n}",
     "@utility bg-brand-gradient {\n  background-image: var(--gradient-brand);\n}",
     "@utility bg-glow {\n  background-image: var(--gradient-glow);\n}",
-    ...["brand-deep", "brand-conic", "sheen", "track"].map((k) => `@utility bg-${k} {\n  background-image: var(--gradient-${k});\n}`),
+    ...["brand-deep", "brand-conic", "sheen", "vignette"].map((k) => `@utility bg-${k} {\n  background-image: var(--gradient-${k});\n}`),
     "/* фон страниц: мятный градиент Сбера, не уезжает при прокрутке */\n@utility bg-page {\n  background-color: var(--background);\n  background-image: var(--gradient-page);\n  background-attachment: fixed;\n}",
     "@utility text-brand-gradient {\n  background-image: var(--gradient-brand);\n  background-clip: text;\n  color: transparent;\n}",
     "/* шторка: не выше экрана с учётом выреза */\n@utility max-h-sheet {\n  max-height: calc(100dvh - 16px - env(safe-area-inset-top));\n}",

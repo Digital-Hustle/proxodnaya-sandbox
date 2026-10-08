@@ -16,7 +16,7 @@ export const WorkerHistoryPage = () => {
   return (
     <motion.div variants={stagger()} initial="hidden" animate="show" className="flex flex-col gap-5 pt-2">
       <motion.h1 variants={fadeUp} className="px-1 font-display text-2xl font-semibold tracking-display">История проходов</motion.h1>
-      {mine.length === 0 && <Card><EmptyState icon={<History />} title="Проходов ещё не было" text="В песочнице история видна, если киоск открыт на этом же устройстве." /></Card>}
+      {mine.length === 0 && <Card><EmptyState icon={<History />} title="Проходов пока нет" text="В демо-режиме история отображается, если киоск открыт в этом же браузере." /></Card>}
       {Object.entries(groups).map(([day, list]) => (
         <motion.section key={day} variants={fadeUp}>
           <h2 className="mb-2 px-1 text-sm font-medium text-muted-foreground">{dateRu(list[0].ts)}</h2>

@@ -39,7 +39,7 @@ export const DashboardPage = () => {
 
   return (
     <div>
-      <PageHeader kicker={<span className="first-letter:uppercase">{todayRu()}</span>} title="Обстановка на объекте" sub="Обновляется сама, когда кто-то проходит через киоск"
+      <PageHeader kicker={<span className="first-letter:uppercase">{todayRu()}</span>} title="Обстановка на объекте" sub="Данные обновляются в реальном времени при каждом проходе"
         actions={<Link to={routes.adminPersonNew} tabIndex={-1}><Button><UserPlus />Новый сотрудник</Button></Link>} />
 
       <motion.div variants={fadeUp} initial="hidden" animate="show">
@@ -79,7 +79,7 @@ export const DashboardPage = () => {
           {insights.length > 0 && (
             <motion.div variants={fadeUp}>
               <Card>
-                <CardHeader><CardTitle>Помощник заметил</CardTitle></CardHeader>
+                <CardHeader><CardTitle>Рекомендации помощника</CardTitle></CardHeader>
                 <ul className="flex flex-col gap-1 p-2 sm:px-3 sm:pb-3">
                   {insights.map((i) => (
                     <li key={i.text} className="flex items-start gap-3 rounded-md px-2 py-2 text-sm">

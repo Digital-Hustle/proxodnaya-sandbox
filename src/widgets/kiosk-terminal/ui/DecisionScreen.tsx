@@ -40,7 +40,7 @@ export const DecisionScreen = ({ result, onDone }: { result: DecisionResult; onD
             <Avatar name={result.worker.fullName} photo={result.worker.photo} className="size-14 text-lg sm:size-16" />
             <div className="min-w-0">
               <div className="truncate text-lg font-medium sm:text-xl">{result.worker.fullName}</div>
-              <div className="text-sm opacity-80 sm:text-base">{result.worker.position} · {result.direction === "IN" ? "вход" : "выход"} в {hhmm(result.ts)}{result.score ? ` · сходство ${Math.round(result.score * 100)}%` : ""}</div>
+              <div className="text-sm opacity-80 sm:text-base">{result.worker.position} · {result.decision === "ALLOW" || result.decision === "MANUAL" ? (result.direction === "IN" ? "вход" : "выход") : "попытка"} в {hhmm(result.ts)}{result.score ? ` · сходство ${Math.round(result.score * 100)}%` : ""}</div>
             </div>
           </motion.div>
         )}

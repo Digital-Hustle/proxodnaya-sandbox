@@ -24,6 +24,7 @@ export const REASONS: Record<ReasonCode, { decision: Decision; message: string; 
   NOT_INSIDE: { decision: "DENY", message: "Вход не отмечен", hint: "Сначала отметьте вход" },
   TEMP_LOCKED: { decision: "DENY", message: "Слишком много неудачных попыток", hint: "Обратитесь к охране" },
   MANUAL_GUARD: { decision: "MANUAL", message: "Пропущен охранником", hint: "Решение записано в журнал с причиной" },
+  REPEAT_SCAN: { decision: "DENY", message: "Проход уже зарегистрирован", hint: "Повторно предъявить пропуск можно через 30 секунд" },
   SYSTEM_ERROR: { decision: "ERROR", message: "Система недоступна, проход закрыт", hint: "Обратитесь к охране" },
 };
 

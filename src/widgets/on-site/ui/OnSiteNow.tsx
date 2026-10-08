@@ -14,7 +14,7 @@ export const OnSiteNow = () => {
   const db = useDb();
   const now = useNow(30000);
   const list = useMemo(() => presenceNow(db).sort((a, b) => a.since - b.since), [db]);
-  if (!list.length) return <EmptyState icon={<HardHat />} title="На объекте никого" text="Как только кто-то войдёт через киоск, он появится здесь" />;
+  if (!list.length) return <EmptyState icon={<HardHat />} title="На объекте никого" text="Сотрудники появятся здесь после прохода через киоск" />;
   return (
     <div className="grid gap-1 sm:grid-cols-2">
       <AnimatePresence initial={false}>

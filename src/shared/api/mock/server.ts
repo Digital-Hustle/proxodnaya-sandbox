@@ -1,6 +1,6 @@
 // Мок-бэкенд в браузере. Решение о проходе принимается ЗДЕСЬ, а не в компонентах (как Д2 в продукте:
 // UI только показывает то, что вернул «сервер»).
-import type { Attempt, Challenge, DecisionResult, Device, Direction, FrameStat, ReasonCode, Shift, Worker } from "../types";
+import type { Attempt, Challenge, Checkpoint, Db, DecisionResult, Device, Direction, FrameStat, ReasonCode, Shift, Worker } from "../types";
 import { getDb, mutate, resetDb } from "./store";
 import { REASONS } from "./reasons";
 import { presenceNow, shiftFor } from "./derived";
@@ -49,15 +49,43 @@ export type ScanResult =
 const recentFailures = (workerId: string) =>
   getDb().attempts.filter((a) => a.workerId === workerId && a.ts > Date.now() - 5 * 60000 && (a.code === "FACE_MISMATCH" || a.code === "LIVENESS_FAILED")).length;
 
-export const kioskScan = async (raw: string, direction: Direction, checkpointId: string): Promise<ScanResult> => {
+const DEFAULT_COOLDOWN_SEC = 30;
+const DEFAULT_PRESENCE_TTL_H = 16;
+
+export type DirectionResolution = { direction: Direction; repeat: boolean };
+
+/**
+ * ADR-037. Направление прохода выводится сервером, а не выбирается на киоске:
+ * КПП с фиксированным режимом → его направление; иначе «внутри» (открытый интервал моложе presenceTtlHours) → OUT, иначе → IN.
+ * repeat = успешный проход этого сотрудника был меньше repeatScanCooldownSec назад (защита от двойного скана «вошёл-вышел»).
+ */
+export const resolveDirection = (db: Db, workerId: string, checkpointId: string, now = Date.now()): DirectionResolution => {
+  const mode = db.checkpoints.find((c) => c.id === checkpointId)?.mode ?? "AUTO";
+  const ttl = (db.settings.presenceTtlHours ?? DEFAULT_PRESENCE_TTL_H) * 3600000;
+  const p = presenceNow(db).find((x) => x.workerId === workerId);
+  const direction: Direction = mode !== "AUTO" ? mode : p && now - p.since < ttl ? "OUT" : "IN";
+  const cooldown = (db.settings.repeatScanCooldownSec ?? DEFAULT_COOLDOWN_SEC) * 1000;
+  const last = db.attempts.findLast((a) => a.workerId === workerId && (a.decision === "ALLOW" || a.decision === "MANUAL"));
+  return { direction, repeat: !!last && now - last.ts < cooldown };
+};
+
+/** Направление до идентификации (невалидный QR и т. п.): режим КПП, для AUTO — IN. */
+const checkpointDefault = (db: Db, checkpointId: string): Direction => {
+  const mode = db.checkpoints.find((c) => c.id === checkpointId)?.mode ?? "AUTO";
+  return mode === "AUTO" ? "IN" : mode;
+};
+
+export const kioskScan = async (raw: string, checkpointId: string): Promise<ScanResult> => {
   await latency();
   const db = getDb();
-  const base = { checkpointId, direction };
+  const base = { checkpointId, direction: checkpointDefault(db, checkpointId) };
   const qr = parsePassQr(raw);
   if (!qr) return { kind: "decision", result: deny("QR_INVALID", base) };
   const worker = db.workers.find((w) => w.id === qr.workerId);
   if (!worker) return { kind: "decision", result: deny("DEVICE_UNKNOWN", base) };
-  const wb = { ...base, workerId: worker.id };
+  const resolved = resolveDirection(db, worker.id, checkpointId);
+  const direction = resolved.direction;
+  const wb = { checkpointId, direction, workerId: worker.id };
   if (!(await verify(qr.publicKey, qr.signature, signedMessage(qr.workerId, qr.deviceId, qr.window)))) return { kind: "decision", result: deny("QR_INVALID", wb) };
 
   const nowW = currentWindow();
@@ -88,6 +116,7 @@ export const kioskScan = async (raw: string, direction: Direction, checkpointId:
   const zoneId = db.checkpoints.find((c) => c.id === checkpointId)?.zoneId;
   if (zoneId && !worker.zoneIds.includes(zoneId)) return { kind: "decision", result: deny("NO_ZONE_PERMIT", wb) };
 
+  if (resolved.repeat) return { kind: "decision", result: deny("REPEAT_SCAN", wb) };
   const inside = presenceNow(db).some((p) => p.workerId === worker.id);
   if (direction === "IN") {
     if (db.settings.requireShift) {
@@ -97,7 +126,8 @@ export const kioskScan = async (raw: string, direction: Direction, checkpointId:
       const now = Date.now();
       if (now < atTime(sh.day, sh.start) - g || now > atTime(sh.day, sh.end)) return { kind: "decision", result: deny("OUTSIDE_SHIFT_WINDOW", wb) };
     }
-    if (inside) return { kind: "decision", result: deny("ALREADY_INSIDE", wb) };
+    // В AUTO «внутри» уже дало бы OUT, а забытый выход старше presenceTtlHours — легальный новый вход.
+    if (inside && db.checkpoints.find((c) => c.id === checkpointId)?.mode === "IN") return { kind: "decision", result: deny("ALREADY_INSIDE", wb) };
   } else if (!inside) return { kind: "decision", result: deny("NOT_INSIDE", wb) };
 
   const c = CHALLENGES[Math.floor(Math.random() * CHALLENGES.length)];
@@ -126,8 +156,9 @@ export const kioskFrames = async (token: string, frames: FrameStat[]): Promise<D
   return record({ ...base, decision: "ALLOW", code: "OK", source: "QR", score });
 };
 
-export const kioskManual = async (workerId: string, direction: Direction, checkpointId: string, note: string) => {
+export const kioskManual = async (workerId: string, checkpointId: string, note: string) => {
   await latency();
+  const { direction } = resolveDirection(getDb(), workerId, checkpointId);
   return record({ workerId, direction, checkpointId, decision: "MANUAL", code: "MANUAL_GUARD", source: "MANUAL", note });
 };
 
@@ -222,6 +253,12 @@ export const upsertShift = async (s: Omit<Shift, "id"> & { id?: string }) => {
 };
 
 export const deleteShift = async (id: string) => { await latency(60, 150); mutate((d) => { d.shifts = d.shifts.filter((x) => x.id !== id); }); };
+
+/** ADR-037: режим КПП — авто (по присутствию) или фиксированное направление (отдельные турникеты входа/выхода). */
+export const updateCheckpoint = async (id: string, patch: Partial<Pick<Checkpoint, "mode">>) => {
+  await latency(60, 150);
+  mutate((d) => { const c = d.checkpoints.find((x) => x.id === id); if (c) Object.assign(c, patch); });
+};
 
 export const updateSettings = async (patch: Partial<ReturnType<typeof getDb>["settings"]>) => {
   await latency(60, 150);
