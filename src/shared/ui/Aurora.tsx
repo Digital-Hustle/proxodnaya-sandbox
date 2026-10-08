@@ -80,5 +80,7 @@ export const Aurora = ({ className, tone = "auto", intensity = PAGE_AURORA, band
     if (!still) raf = requestAnimationFrame(loop);
     return () => { cancelAnimationFrame(raf); ro.disconnect(); gl.canvas.remove(); gl.getExtension("WEBGL_lose_context")?.loseContext(); };
   }, [key, intensity, band]);
-  return <div ref={host} aria-hidden className={cn("pointer-events-none inset-0 -z-10 overflow-hidden bg-page", fixed ? "fixed" : "absolute", className)} />;
+  // fixed — высотой в «большой» экран (lvh): на iOS при скрытии адресной строки размер не меняется,
+  // холст не пересоздаётся на каждом кадре прокрутки и не дёргает липкую шапку.
+  return <div ref={host} aria-hidden className={cn("pointer-events-none -z-10 overflow-hidden bg-page", fixed ? "fixed inset-x-0 top-0 h-lvh" : "absolute inset-0", className)} />;
 };

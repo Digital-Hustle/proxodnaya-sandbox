@@ -107,6 +107,7 @@
 | ease.out | `cubic-bezier(0.22, 1, 0.36, 1)` | `ease-out` |
 | ease.in | `cubic-bezier(0.4, 0, 1, 1)` | `ease-in` |
 | ease.inOut | `cubic-bezier(0.65, 0, 0.35, 1)` | `ease-in-out` |
+| ease.linear | `cubic-bezier(0, 0, 1, 1)` | `ease-linear` |
 | spring.press | stiffness 520, damping 22, mass 0.6 | — |
 | spring.snappy | bounce 0.28, visualDuration 0.32 | — |
 | spring.soft | bounce 0.22, visualDuration 0.5 | — |
@@ -142,6 +143,9 @@
 ### Интерфейс сотрудника v3.2 (ADR-044)
 - **Оболочка** — та же `HeaderBar` (`inner="max-w-lg"`) и плавающая нижняя навигация, что у кабинета на телефоне. Контент `max-w-lg px-4 pt-6 sm:px-6 sm:pt-8`.
 - **Заголовки** — только `PageHeader` (kicker + title + sub), без самодельных h1.
-- **Пропуск** — шапка карточки `bg-brand-deep` + `bg-sheen`, белая плашка QR заходит на неё (`-mt-12`, `relative`), цифры дня за пунктирной линией отрыва (`border-dashed border-border-strong`).
+- **Пропуск** (v3.3, ADR-045) — врезка `rounded-lg bg-brand-deep p-4` внутри карточки (`p-2`) только с аватаром, ФИО и тегами; QR стоит ниже отдельно (`pt-3`), на врезку не заходит. Цифры дня — `grid-cols-4`, смена `col-span-2`, за пунктирной линией отрыва (`border-dashed border-border-strong`).
+- **Профиль** — 4-я вкладка: допуск, «Мои объекты», «Этот телефон» + установка, оформление, `danger-soft` «Выйти с этого телефона» с подтверждением.
+- **Морф QR** — `StyledQr morph`: волна от центра за `duration.slow × 2.2` (`ease.inOut`), уходящие модули сжимаются, новые вырастают с перелётом.
+- **Полоса обновления** — только `CountdownBar` (translateX, одна линейная анимация `ease.linear` на окно). `scaleX` внутри скруглённой дорожки не использовать — WebKit рвёт клип.
 - **Плитки KPI** — первая акцентная `bg-brand-deep`, остальные `bg-card`, как на «Сводке».
 - **Календарь** — клетки `aspect-square rounded-sm`: смена `bg-surface`, сегодня `bg-accent ring-1 ring-ring`, выбранный день `bg-brand-deep text-white`, точка-статус `size-1`.

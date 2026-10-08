@@ -5,6 +5,7 @@ export const routes = {
   workerActivate: "/worker/activate",
   workerHistory: "/worker/history",
   workerShifts: "/worker/shifts",
+  workerProfile: "/worker/profile",
   admin: "/admin",
   adminPeople: "/admin/people",
   adminPersonNew: "/admin/people/new",

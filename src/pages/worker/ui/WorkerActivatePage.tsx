@@ -9,7 +9,7 @@ export const WorkerActivatePage = () => {
   const [sp] = useSearchParams();
   const nav = useNavigate();
   return (
-    <div className="relative isolate flex min-h-dvh flex-col overflow-x-clip">
+    <div className="relative isolate flex min-h-svh flex-col overflow-x-clip">
       <HeaderBar inner="max-w-lg">
         <Link to={routes.home} className="min-w-0 shrink-0 rounded-md px-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"><Logo sub="сотрудник" /></Link>
         <div className="ml-auto flex shrink-0 items-center gap-1.5"><PreferencesButton /></div>

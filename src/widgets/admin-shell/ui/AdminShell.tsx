@@ -52,7 +52,7 @@ export const AdminShell = () => {
   const ind = useTrackIndicator(loc.pathname);
 
   return (
-    <div className="relative isolate min-h-dvh text-foreground">
+    <div className="relative isolate min-h-svh text-foreground">
       {/* Шапка-пилюля, как на sberbank.ru */}
       <HeaderBar>
         <Link to={routes.home} className="shrink-0 rounded-md px-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"><Logo sub="администратор" /></Link>

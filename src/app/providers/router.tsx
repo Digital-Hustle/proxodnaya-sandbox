@@ -45,7 +45,7 @@ const RootLayout = () => {
   const { pathname } = useLocation();
   const section = pathname.split("/")[1] || "home";
   return (
-    <div className="relative isolate min-h-dvh text-foreground">
+    <div className="relative isolate min-h-svh text-foreground">
       <Aurora fixed />
       <AnimatePresence mode="wait" initial={false} onExitComplete={() => scrollTo(0, 0)}>
         <motion.div key={section} initial={{ opacity: 0 }} animate={{ opacity: 1, transition: tween.base }} exit={{ opacity: 0, transition: tween.exit }}>
@@ -70,6 +70,7 @@ export const router = createHashRouter([
         { index: true, lazy: async () => ({ Component: (await worker()).WorkerPassPage }) },
         { path: "history", lazy: async () => ({ Component: (await worker()).WorkerHistoryPage }) },
         { path: "shifts", lazy: async () => ({ Component: (await worker()).WorkerShiftsPage }) },
+        { path: "profile", lazy: async () => ({ Component: (await worker()).WorkerProfilePage }) },
       ],
     },
     {
