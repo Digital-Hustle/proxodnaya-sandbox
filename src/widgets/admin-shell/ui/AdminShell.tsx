@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 import { LayoutGrid, Users, ScrollText, CalendarClock, BarChart3, Sparkles, Settings, MoreHorizontal, ScanLine, Home, ChevronRight, MonitorSmartphone, UserCog, Lock, KeyRound } from "lucide-react";
 import { useSession, can, roleLabel, type Perm } from "@/entities/session";
 import { AssistantFab } from "@/features/ask-assistant";
-import { Avatar, Status, toast, EmptyState, Logo, ThemePicker, PreferencesButton, OfflineBanner, Dialog, Button, HeaderBar, NavTrack, TrackIndicator, useTrackIndicator } from "@/shared/ui";
+import { Avatar, Status, toast, EmptyState, Logo, ThemePicker, PreferencesButton, InstallButton, OfflineBanner, Dialog, Button, HeaderBar, NavTrack, TrackIndicator, useTrackIndicator } from "@/shared/ui";
 import { routes } from "@/shared/const/router";
 import { cn } from "@/shared/lib";
 import { api, useDb } from "@/shared/api";
@@ -59,6 +59,7 @@ export const AdminShell = () => {
         <NavTrack items={items.map(({ to, label, end }) => ({ to, label, end }))} className="ml-auto hidden lg:block xl:ml-6" />
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
           <Button variant="quiet" className="hidden h-12 rounded-md md:inline-flex" onClick={() => setRoleOpen(true)} aria-label={`Пользователь: ${me?.name ?? ""}, ${roleLabel(role)}`}>{me ? <Avatar name={me.name} className="size-7" /> : <UserCog />}<span className="hidden 2xl:inline">{roleLabel(role)}</span></Button>
+          <InstallButton className="hidden lg:inline-flex" />
           <PreferencesButton className="hidden lg:flex" />
           <Link to={routes.kiosk} target="_blank" className="hidden md:block" tabIndex={-1}><Button variant="brand" className="h-12 rounded-md"><ScanLine />Киоск</Button></Link>
           <Link to={routes.kiosk} target="_blank" className="md:hidden" tabIndex={-1}><Button variant="brand" size="icon" className="size-12" aria-label="Открыть киоск"><ScanLine /></Button></Link>

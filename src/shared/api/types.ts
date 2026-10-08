@@ -40,7 +40,7 @@ export type Attempt = {
   /** FACE — проход в режиме «Сначала лицо» (ADR-038). */
   source: "QR" | "MANUAL" | "FACE" | "OFFLINE";
   /** ADR-042: проход проверен терминалом без связи и пришёл при синхронизации. conflict — что сервер нашёл при сверке. */
-  offline?: { kioskId: string; syncedAt: number; conflict?: string };
+  offline?: { kioskId: string; syncedAt: number; conflict?: string; seq?: number; signed?: boolean };
   score?: number;
   note?: string;
   /** ADR-040: кто принял ручное решение (охранник поста). */
@@ -123,6 +123,20 @@ export type OfflineEvent = {
   /** deviceId|window — чтобы сервер погасил код и заметил повтор на другом терминале. */
   useKey?: string;
   bindDevice?: { id: string; publicKey: string };
+  /** ADR-043: номер записи в журнале терминала, хэш предыдущей и своей. */
+  seq?: number;
+  prev?: string;
+  hash?: string;
+  /** ADR-043: исходный QR — подпись сотрудника, которую сервер перепроверяет. Без неё терминал не докажет, что человек был у турникета. */
+  proof?: string;
+};
+
+/** ADR-043: пакет проходов без связи. Подписывается ключом терминала (ECDSA P-256), закрытая часть не покидает устройство. */
+export type OfflineBatch = { v: 1; kioskId: string; nonce: string; sentAt: number; events: OfflineEvent[] };
+export type OfflineSyncResult = {
+  ok: boolean; error?: string;
+  /** Записи, которые сервер принял (их можно удалить из очереди). */
+  accepted: string[]; synced: number; conflicts: number; rejected: number;
 };
 
 /** Терминал (киоск). Пока не сопряжён с проходной в админке — показывает код сопряжения и никого не пропускает. */
@@ -138,6 +152,12 @@ export type Kiosk = {
   pairedAt?: number;
   /** ADR-042: когда терминал в последний раз скачал снимок допусков. */
   snapshotAt?: number;
+  /** ADR-043: открытый ключ терминала — им сервер проверяет подпись пакетов. */
+  publicKey?: string;
+  /** ADR-043: последнее принятое звено журнала терминала. */
+  chain?: { seq: number; hash: string };
+  /** ADR-043: последняя ошибка синхронизации (подпись не сошлась и т. п.). */
+  syncError?: { at: number; message: string };
   lastSeen: number;
   createdAt: number;
 };

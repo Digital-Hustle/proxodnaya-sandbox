@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { FlaskConical, Maximize } from "lucide-react";
 import { api, useDb, terminalModeOf, offlinePolicyOf, type DecisionResult } from "@/shared/api";
 import { Button, Logo, toast } from "@/shared/ui";
-import { useOfflinePass, localLeftMs, verifyLocal } from "@/features/offline-pass";
+import { useOfflinePass, localLeftMs, verifyLocal, syncQueue, kioskKey } from "@/features/offline-pass";
 import { useNow, useOnline } from "@/shared/hooks";
 import { hhmm, cn, randomId } from "@/shared/lib";
 import { tween } from "@/shared/config/motion";
@@ -45,8 +45,10 @@ export const KioskPage = () => {
   // Киоск представляется серверу и шлёт пульс — админка видит, что он на связи.
   useEffect(() => {
     if (!online) return;
-    api.kioskHello(kioskId);
-    const t = setInterval(() => api.kioskHello(kioskId), 30000);
+    let pub: string | undefined;
+    const hello = () => api.kioskHello(kioskId, pub);
+    kioskKey(kioskId).then((k) => { pub = k.publicKey; hello(); }).catch(hello);
+    const t = setInterval(hello, 30000);
     return () => clearInterval(t);
   }, [kioskId, online]);
 
@@ -56,16 +58,20 @@ export const KioskPage = () => {
   // ADR-042: пока есть связь, терминал отправляет накопленные проходы и обновляет снимок допусков раз в минуту.
   const snapshot = useOfflinePass((x) => x.snapshot);
   const settingsKey = JSON.stringify(db.settings);
+  // Новый или отвязанный телефон сразу попадает в снимок — не ждём минутного обновления.
+  const devicesKey = db.devices.map((x) => x.id + (x.revokedAt ? "-" : "")).join();
   useEffect(() => {
     if (!online || !paired) return;
     let alive = true;
     const tick = async () => {
-      const { queue, dropSynced, setSnapshot } = useOfflinePass.getState();
+      const { queue, setSnapshot } = useOfflinePass.getState();
       if (queue.length) {
-        const r = await api.syncOffline(kioskId, queue);
+        // ADR-043: очередь уходит подписанными пакетами; что сервер не принял, остаётся до следующей попытки.
+        const r = await syncQueue(kioskId);
         if (!alive) return;
-        dropSynced(queue.map((e) => e.id));
         if (r.synced) toast.info(r.conflicts ? `Проходы без связи ушли в журнал: ${r.synced}, с конфликтом: ${r.conflicts}` : `Проходы без связи ушли в журнал: ${r.synced}`);
+        if (r.rejected) toast.error(`Сервер отклонил изменённые записи терминала: ${r.rejected}`);
+        if (!r.ok) toast.error(`Проходы без связи не отправлены: ${r.error}`);
       }
       const s = await api.kioskSnapshot(kioskId);
       if (alive && s) setSnapshot(s);
@@ -74,7 +80,7 @@ export const KioskPage = () => {
     const t = setInterval(tick, 60000);
     return () => { alive = false; clearInterval(t); };
     // Снимок сам пишет snapshotAt в базу — зависим от содержимого настроек, а не от ссылки, иначе эффект перезапускается и снимок теряется.
-  }, [online, paired, kioskId, settingsKey]);
+  }, [online, paired, kioskId, settingsKey, devicesKey]);
 
   const policy = offlinePolicyOf(db, kiosk);
   const leftMs = snapshot?.kioskId === kioskId ? localLeftMs(snapshot, now) : 0;

@@ -1,19 +1,33 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useOutletContext } from "react-router";
 import { motion } from "motion/react";
 import { useDb, presenceNow, shiftFor, workedMs, buildIntervals } from "@/shared/api";
 import { Avatar, Status, LogoMark } from "@/shared/ui";
 import { durationRu, hhmm, todayKey } from "@/shared/lib";
-import { useNow } from "@/shared/hooks";
+import { useNow, useOnline } from "@/shared/hooks";
 import { PassQr } from "@/features/show-pass-qr";
 import type { WorkerCtx } from "@/widgets/worker-shell";
 import { fadeUp, stagger } from "@/shared/config/motion";
+
+// ADR-043: карточка пропуска хранится на телефоне — без сети приложение открывается из кэша и показывает её вместе с QR.
+const CARD = "proxodnaya.worker.card";
+type Card = { id: string; fullName: string; position: string; contractor: string; photo?: string };
+const readCard = (id: string): Card | undefined => {
+  try { const c = JSON.parse(localStorage.getItem(CARD) ?? "null") as Card | null; return c?.id === id ? c : undefined; } catch { return undefined; }
+};
 
 export const WorkerPassPage = () => {
   const { key } = useOutletContext<WorkerCtx>();
   const db = useDb();
   const now = useNow(30000);
-  const w = db.workers.find((x) => x.id === key.workerId);
+  const online = useOnline();
+  const live = db.workers.find((x) => x.id === key.workerId);
+  useEffect(() => {
+    if (!live) return;
+    const { id, fullName, position, contractor, photo } = live;
+    try { localStorage.setItem(CARD, JSON.stringify({ id, fullName, position, contractor, photo })); } catch { /* фото может не влезть — карточка без него */ }
+  }, [live]);
+  const w = live ?? readCard(key.workerId);
   const pres = useMemo(() => presenceNow(db).find((p) => p.workerId === key.workerId), [db, key.workerId]);
   const sh = shiftFor(db, key.workerId);
   const worked = useMemo(() => workedMs(db, key.workerId, todayKey(), buildIntervals(db), now), [db, key.workerId, now]);
@@ -51,6 +65,7 @@ export const WorkerPassPage = () => {
         ))}
       </motion.dl>
       <motion.p variants={fadeUp} className="px-2 text-center text-xs text-muted-foreground">
+        {!online && "Нет сети, но пропуск работает: код подписывается на телефоне, терминал проверит его сам. "}
         {pres ? `Вход в ${hhmm(pres.since)}. При выходе предъявите QR-код ещё раз.` : "Предъявите код камере киоска. Код одноразовый и действует 30 секунд, поэтому скриншот не подойдёт."}
       </motion.p>
     </motion.div>
