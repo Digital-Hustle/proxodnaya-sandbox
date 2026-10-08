@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Link } from "react-router";
 import { motion } from "motion/react";
 import { ArrowRight, ScanLine, ChevronRight, ScrollText, BarChart3, Sparkles, ShieldCheck } from "lucide-react";
-import { Logo, LogoMark, Status, Button, AnimatedNumber, Aurora, HeaderBar, PreferencesButton, StyledQr } from "@/shared/ui";
+import { Logo, LogoMark, Status, Button, AnimatedNumber, Aurora, HeaderBar, PreferencesButton, StyledQr, BrandConicFill } from "@/shared/ui";
 import { DEMO_INVITES, useDb, presenceNow, dailyStats } from "@/shared/api";
 import { todayKey, cn } from "@/shared/lib";
 import { routes, absoluteUrl } from "@/shared/const/router";
@@ -22,7 +22,7 @@ const STORIES = [
   { to: routes.admin, label: "Обстановка", img: art("admin") },
   { to: routes.adminJournal, label: "Журнал проходов", icon: ScrollText, tone: "bg-brand-deep" },
   { to: routes.adminAnalytics, label: "Аналитика", icon: BarChart3, tone: "bg-brand" },
-  { to: routes.adminAssistant, label: "Помощник", icon: Sparkles, tone: "bg-brand-conic" },
+  { to: routes.adminAssistant, label: "Помощник", icon: Sparkles, tone: "conic" },
 ];
 
 /** Герой как у sberbank.ru: две карточки внахлёст с наклоном — подсказка и живой пропуск. */
@@ -101,9 +101,9 @@ export const HomePage = () => {
             <motion.div key={to} variants={fadeUp} className="w-20 shrink-0">
               <motion.div {...lift}>
                 <Link to={to} className="group flex flex-col gap-2 text-left outline-none">
-                  <span className={cn("relative flex size-20 items-center justify-center overflow-hidden rounded-xl shadow-card ring-2 ring-white/70 transition-shadow duration-base group-hover:shadow-float group-focus-visible:ring-ring dark:ring-white/10", tone)}>
+                  <span className={cn("relative flex size-20 items-center justify-center overflow-hidden rounded-xl shadow-card ring-2 ring-white/70 transition-shadow duration-base group-hover:shadow-float group-focus-visible:ring-ring dark:ring-white/10", tone !== "conic" && tone)}>
                     {img ? <img src={img} alt="" className="size-full object-cover" loading="lazy" /> : Icon && (<>
-                      <span aria-hidden className="absolute inset-0 bg-sheen" /><Icon className="relative size-8 text-white drop-shadow-sm" />
+                      {tone === "conic" ? <BrandConicFill /> : <span aria-hidden className="absolute inset-0 bg-sheen" />}<Icon className="relative size-8 text-white drop-shadow-sm" />
                     </>)}
                   </span>
                   <span className="text-sm font-semibold leading-tight">{label}</span>
