@@ -20,7 +20,11 @@ type State =
 
 const CAPTURE_MS = 3500;
 const CORNERS = ["left-0 top-0 rounded-tl-lg border-l-4 border-t-4", "right-0 top-0 rounded-tr-lg border-r-4 border-t-4", "bottom-0 left-0 rounded-bl-lg border-b-4 border-l-4", "bottom-0 right-0 rounded-br-lg border-b-4 border-r-4"];
-const sweep = { duration: duration.loop, repeat: Infinity, ease: ease.inOut } as const;
+const sweep = { duration: duration.loop / 2, repeat: Infinity, repeatType: "mirror", ease: ease.inOut } as const;
+const breathe = { duration: duration.loop / 2, repeat: Infinity, repeatType: "mirror", ease: ease.inOut } as const;
+/** Камера и фон сменяют друг друга симметрично: одна и та же длительность и кривая; уход — с паузой, чтобы не мигало. */
+const camIn = { duration: duration.slow * 2, ease: ease.inOut } as const;
+const camOut = { duration: duration.slow * 2, ease: ease.inOut, delay: duration.fast } as const;
 
 /** Терминал КПП: только сканер. Направление (вход/выход) определяет сервер — ADR-037. */
 export const KioskTerminal = ({ checkpointId, mode = "QR_FACE", demoOpen, setDemoOpen }: { checkpointId: string; mode?: TerminalMode; demoOpen: boolean; setDemoOpen: (v: boolean) => void }) => {
@@ -86,16 +90,24 @@ export const KioskTerminal = ({ checkpointId, mode = "QR_FACE", demoOpen, setDem
 
   return (
     <div className="relative isolate flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl">
-      <video ref={cam.videoRef} playsInline muted className={cn("absolute inset-0 size-full -scale-x-100 object-cover transition-opacity duration-slow", showVideo ? "opacity-100" : "opacity-0")} />
-      <motion.div aria-hidden className="absolute inset-0 bg-linear-to-t from-black/70 via-black/10 to-black/30" animate={{ opacity: showVideo ? 1 : 0 }} transition={tween.base} />
+      <motion.video ref={cam.videoRef} playsInline muted className="absolute inset-0 size-full -scale-x-100 object-cover" initial={false} animate={{ opacity: showVideo ? 1 : 0, filter: showVideo ? "blur(0px)" : "blur(16px)" }} transition={showVideo ? camIn : camOut} />
+      <motion.div aria-hidden className="absolute inset-0 bg-linear-to-t from-black/70 via-black/10 to-black/30" initial={false} animate={{ opacity: showVideo ? 1 : 0 }} transition={showVideo ? camIn : camOut} />
 
       <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-6 overflow-y-auto p-5 text-center sm:gap-8 sm:p-8">
         <AnimatePresence mode="wait">
           {state.kind === "idle" && (
             <motion.div key="idle" variants={popIn} initial="hidden" animate="show" exit="exit" className="flex w-full flex-col items-center gap-6 sm:gap-8">
               <div className="relative size-44 shrink-0 sm:size-64">
-                {CORNERS.map((c) => <span key={c} className={cn("absolute size-10 border-white sm:size-14", c)} />)}
-                <motion.div className="absolute inset-x-5 h-1 rounded-full bg-brand-gradient" animate={{ top: ["12%", "88%", "12%"] }} transition={sweep} />
+                <motion.div aria-hidden className="absolute inset-0" animate={{ scale: [1, 1.04] }} transition={breathe}>
+                  {CORNERS.map((c) => <span key={c} className={cn("absolute size-10 border-white sm:size-14", c)} />)}
+                </motion.div>
+                <div aria-hidden className="absolute inset-3 overflow-hidden rounded-lg sm:inset-4">
+                  <motion.div className="absolute inset-x-2 flex flex-col items-stretch" animate={{ top: ["-4%", "84%"] }} transition={sweep}>
+                    <motion.div className="h-12 rounded-t-lg bg-linear-to-b from-transparent to-brand/30 sm:h-16" animate={{ opacity: [0.35, 1] }} transition={sweep} />
+                    <div className="h-1 rounded-full bg-brand-gradient shadow-glow" />
+                    <motion.div className="h-12 rounded-b-lg bg-linear-to-t from-transparent to-brand/30 sm:h-16" animate={{ opacity: [1, 0.35] }} transition={sweep} />
+                  </motion.div>
+                </div>
                 {!cameraOn && <div className="absolute inset-0 flex items-center justify-center text-white/50"><QrCode className="size-16 sm:size-20" strokeWidth={1.5} /></div>}
               </div>
               <div className="relative flex flex-col items-center gap-2">
