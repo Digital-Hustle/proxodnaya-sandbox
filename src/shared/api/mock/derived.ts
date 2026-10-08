@@ -1,6 +1,7 @@
 // Производные данные: присутствие, интервалы, отработанное время, аналитика.
 // Формулы — docs/DEMO.md «Математическая модель».
-import type { Attempt, Db, Interval, ReasonCode, Shift } from "../types";
+import type { Attempt, Db, Interval, ReasonCode, Shift, Site } from "../types";
+import { DEFAULT_SITES, DEFAULT_ZONE_SITE } from "./seed";
 import { atTime, dayKey, todayKey } from "../../lib/time";
 import { SYSTEM_CODES } from "./reasons";
 
@@ -93,4 +94,30 @@ export const presenceTtlHours = (db: Db) => db.settings.presenceTtlHours ?? 16;
 export const unclosedIntervals = (db: Db, now = Date.now()) => {
   const ttl = presenceTtlHours(db) * 3600000;
   return buildIntervals(db).filter((i) => i.end === undefined && now - i.start > ttl);
+};
+
+// ——— ADR-044: объекты ———
+export const sitesOf = (db: Db): Site[] => db.sites?.length ? db.sites : DEFAULT_SITES;
+export const siteOfZone = (db: Db, zoneId: string): Site => {
+  const sites = sitesOf(db);
+  const id = db.zones.find((z) => z.id === zoneId)?.siteId ?? DEFAULT_ZONE_SITE[zoneId];
+  return sites.find((s) => s.id === id) ?? sites[0];
+};
+export const siteOfCheckpoint = (db: Db, checkpointId: string) => siteOfZone(db, zoneOf(db, checkpointId));
+
+/** Объекты, куда у сотрудника есть допуск, с его зонами. Порядок — как в списке объектов. */
+export const workerSites = (db: Db, workerId: string) => {
+  const w = db.workers.find((x) => x.id === workerId);
+  if (!w) return [];
+  return sitesOf(db)
+    .map((site) => ({ site, zones: db.zones.filter((z) => w.zoneIds.includes(z.id) && siteOfZone(db, z.id).id === site.id) }))
+    .filter((x) => x.zones.length);
+};
+
+/** Первый вход и последний выход за день — для карточки смены. */
+export const dayPasses = (db: Db, workerId: string, day: string) => {
+  const list = db.attempts.filter((a) => a.workerId === workerId && isPass(a) && dayKey(a.ts) === day);
+  const firstIn = list.find((a) => a.direction === "IN");
+  const lastOut = [...list].reverse().find((a) => a.direction === "OUT");
+  return { firstIn: firstIn?.ts, lastOut: lastOut?.ts, checkpointId: firstIn?.checkpointId };
 };

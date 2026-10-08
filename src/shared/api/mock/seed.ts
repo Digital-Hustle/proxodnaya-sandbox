@@ -1,4 +1,4 @@
-import type { Attempt, Db, ReasonCode, Shift, Worker } from "../types";
+import type { Attempt, Db, ReasonCode, Shift, Site, Worker } from "../types";
 import { atTime, todayKey } from "../../lib/time";
 import { mulberry32 } from "../../lib/id";
 
@@ -46,13 +46,20 @@ const dayShift = (offsetDays: number) => {
   return todayKey(d);
 };
 
+/** ADR-044: объекты по умолчанию и привязка зон — для баз, созданных до появления объектов. */
+export const DEFAULT_SITES: Site[] = [
+  { id: "s_north", name: "ЖК «Северный»", address: "ул. Заводская, 14" },
+  { id: "s_south", name: "Склад «Южный»", address: "Промзона, стр. 3" },
+];
+export const DEFAULT_ZONE_SITE: Record<string, string> = { z_a: "s_north", z_b: "s_north", z_s: "s_south" };
+
 export const createSeed = (): Db => {
   const rnd = mulberry32(20261010);
   const now = Date.now();
   const zones = [
-    { id: "z_a", name: "Корпус А", capacity: 40 },
-    { id: "z_b", name: "Корпус Б", capacity: 25 },
-    { id: "z_s", name: "Склад", capacity: 6 },
+    { id: "z_a", name: "Корпус А", capacity: 40, siteId: "s_north" },
+    { id: "z_b", name: "Корпус Б", capacity: 25, siteId: "s_north" },
+    { id: "z_s", name: "Склад", capacity: 6, siteId: "s_south" },
   ];
   const checkpoints = [
     { id: "cp_main", name: "КПП-1 · Главный вход", zoneId: "z_a" },
@@ -112,7 +119,7 @@ export const createSeed = (): Db => {
   attempts.sort((a, b) => a.ts - b.ts);
   return {
     version: DB_VERSION,
-    workers, devices: [], zones, checkpoints, shifts, attempts, qrUses: [], kiosks: [], admins: seedAdmins(), accessLog: [],
+    workers, devices: [], sites: DEFAULT_SITES, zones, checkpoints, shifts, attempts, qrUses: [], kiosks: [], admins: seedAdmins(), accessLog: [],
     settings: { faceThreshold: 0.6, qrToleranceSec: 45, shiftGraceMin: 60, requireShift: true, demoFace: "match" },
   };
 };

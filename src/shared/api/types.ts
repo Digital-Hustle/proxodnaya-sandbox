@@ -25,7 +25,9 @@ export type Worker = {
 };
 
 export type Device = { id: string; workerId: string; publicKey: string; createdAt: number; revokedAt?: number; label: string };
-export type Zone = { id: string; name: string; capacity: number };
+export type Zone = { id: string; name: string; capacity: number; /** ADR-044: объект, к которому относится зона. */ siteId?: string };
+/** ADR-044: объект (стройка, склад). Зоны и проходные принадлежат объекту; один QR сотрудника действует на всех его объектах. */
+export type Site = { id: string; name: string; address?: string };
 export type Checkpoint = { id: string; name: string; zoneId: string; mode?: CheckpointMode };
 export type Shift = { id: string; workerId: string; day: string; start: string; end: string };
 
@@ -182,6 +184,8 @@ export type Db = {
   settings: Settings;
   /** ADR-038: сопряжённые и ожидающие терминалы. Необязательно — старые базы без поля. */
   kiosks?: Kiosk[];
+  /** ADR-044: объекты. Необязательно — в старых базах берутся объекты по умолчанию. */
+  sites?: Site[];
   /** ADR-041: пользователи панели и журнал выдачи доступа. */
   admins?: AdminUser[];
   accessLog?: AccessEvent[];
