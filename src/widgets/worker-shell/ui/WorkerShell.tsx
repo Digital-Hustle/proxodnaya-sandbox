@@ -23,31 +23,33 @@ export const WorkerShell = () => {
   useEffect(() => { loadKey("phone").then((k) => setKey(k ?? null)).catch(() => setKey(null)); }, [loc.pathname]);
   if (key === null) return <Navigate to={routes.workerActivate + loc.search} replace />;
   return (
-    <div className="relative isolate min-h-dvh">
-      <div className="mx-auto flex min-h-dvh max-w-md flex-col">
-        <HeaderBar className="px-3 sm:px-3" inner="justify-between">
-          <Link to={routes.home} className="min-w-0 px-1.5"><Logo sub="пропуск" /></Link>
-          <div className="flex items-center gap-2"><InstallButton /><PreferencesButton /></div>
-        </HeaderBar>
-        <OfflineBanner text="Нет сети. QR-пропуск работает офлайн" />
+    <div className="relative isolate min-h-dvh text-foreground">
+      {/* Та же шапка-пилюля, что в кабинете руководителя: знак слева, действия справа, одинаковые отступы. */}
+      <HeaderBar inner="max-w-lg">
+        <Link to={routes.home} className="min-w-0 shrink-0 rounded-md px-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"><Logo sub="сотрудник" /></Link>
+        <div className="ml-auto flex shrink-0 items-center gap-1.5"><InstallButton /><PreferencesButton /></div>
+      </HeaderBar>
+      <OfflineBanner text="Нет сети. QR-пропуск работает офлайн" />
+      <div className="mx-auto w-full max-w-lg px-4 pb-nav pt-6 sm:px-6 sm:pt-8">
         {key === undefined ? (
-          <div className="flex flex-col gap-4 px-4 pt-4"><Skeleton className="h-16" /><Skeleton className="h-96 rounded-xl" /><Skeleton className="h-20" /></div>
+          <div className="flex flex-col gap-4"><Skeleton className="h-16" /><Skeleton className="h-96 rounded-xl" /><Skeleton className="h-20" /></div>
         ) : (
-          <motion.main key={loc.pathname} {...pageIn} className="flex-1 px-4 pb-nav pt-4">
+          <motion.main key={loc.pathname} {...pageIn}>
             <Outlet context={{ key } satisfies WorkerCtx} />
           </motion.main>
         )}
-        <nav className="fixed inset-x-0 bottom-0 z-nav px-4 pb-safe" aria-label="Разделы">
-          <div ref={ind.ref} className="relative mx-auto mb-3 flex max-w-sm gap-1 rounded-xl bg-card/90 p-1.5 shadow-float backdrop-blur-xl">
-            <TrackIndicator ind={ind} className="inset-y-1.5 rounded-lg bg-accent" />
-            {TABS.map(({ to, label, icon: Icon, end }) => (
-              <NavLink key={to} to={to} end={end} className={({ isActive }) => cn("relative flex min-h-control-lg flex-1 items-center justify-center gap-2 rounded-md text-sm font-medium", isActive ? "text-accent-foreground" : "text-muted-foreground")}>
-                <Icon className="relative z-raised size-5" /><span className="relative z-raised">{label}</span>
-              </NavLink>
-            ))}
-          </div>
-        </nav>
       </div>
+      {/* Нижняя навигация — как у кабинета руководителя на телефоне */}
+      <nav className="fixed inset-x-0 bottom-0 z-nav px-3 pb-safe" aria-label="Разделы">
+        <div ref={ind.ref} className="relative mx-auto mb-3 flex max-w-md items-stretch gap-0.5 rounded-xl bg-card/90 p-1 shadow-float backdrop-blur-xl">
+          <TrackIndicator ind={ind} className="inset-y-1 rounded-lg bg-accent" />
+          {TABS.map(({ to, label, icon: Icon, end }) => (
+            <NavLink key={to} to={to} end={end} className={({ isActive }) => cn("relative flex min-h-control-lg min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-md text-xs font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring", isActive ? "text-accent-foreground" : "text-muted-foreground")}>
+              <Icon className="relative z-raised size-5" /><span className="relative z-raised">{label}</span>
+            </NavLink>
+          ))}
+        </div>
+      </nav>
     </div>
   );
 };
