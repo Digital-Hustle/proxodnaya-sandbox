@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router";
 import { motion } from "motion/react";
-import { ArrowLeft, Ban, CheckCircle2, QrCode, Smartphone, Trash2 } from "lucide-react";
+import { ArrowLeft, Ban, CheckCircle2, QrCode, ScanFace, Smartphone, Trash2, X } from "lucide-react";
+import { useSession } from "@/entities/session";
 import { api, useDb, presenceNow, workedMs, buildIntervals, shiftFor } from "@/shared/api";
 import { Avatar, Status, Button, Card, CardHeader, CardTitle, Dialog, EmptyState, Field, toast } from "@/shared/ui";
 import { DatePicker } from "@/shared/ui";
@@ -11,6 +12,45 @@ import { dateRu, durationRu, todayKey } from "@/shared/lib";
 import { routes } from "@/shared/const/router";
 import { fadeUp, stagger } from "@/shared/config/motion";
 import { InviteCard } from "./InviteCard";
+
+const FACE_TEXT: Record<string, string> = { HR: "снят при оформлении", PHONE: "селфи с телефона", KIOSK: "снят на терминале" };
+
+/** ADR-046: эталон лица. Селфи с телефона включается только после того, как человек сверит его с документом. */
+const FaceCard = ({ id }: { id: string }) => {
+  const db = useDb();
+  const by = useSession((x) => x.userId);
+  const [busy, setBusy] = useState(false);
+  const w = db.workers.find((x) => x.id === id);
+  const f = w?.face ?? { status: "ACTIVE" as const };
+  if (!w) return null;
+  const act = (ok: boolean) => { setBusy(true); api.reviewFace(w.id, ok, by, ok ? undefined : "Лицо плохо видно или не совпадает с документом").then(() => { setBusy(false); toast[ok ? "success" : "info"](ok ? "Эталон подтверждён — терминалы начнут узнавать сотрудника" : "Снимок отклонён, сотрудник получит подсказку переснять"); }); };
+  return (
+    <Card>
+      <CardHeader><CardTitle>Лицо для прохода</CardTitle>
+        {f.status === "ACTIVE" ? <Status tone="success" dot>есть</Status> : f.status === "PENDING" ? <Status tone="info" dot>на проверке</Status> : f.status === "REJECTED" ? <Status tone="danger" dot>отклонено</Status> : <Status tone="warning" dot>нет</Status>}
+      </CardHeader>
+      <div className="flex flex-col gap-4 p-4 sm:p-6">
+        {f.status === "PENDING" && f.pendingPhoto ? (
+          <>
+            <div className="flex items-center gap-4">
+              <img src={f.pendingPhoto} alt="Селфи сотрудника" className="size-20 shrink-0 rounded-full object-cover ring-2 ring-border" />
+              <p className="text-pretty text-sm text-muted-foreground">Селфи с проверкой живости, прислано с привязанного телефона. Сверьте с документом или с человеком на проходной.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="danger-soft" disabled={busy} onClick={() => act(false)}><X />Отклонить</Button>
+              <Button disabled={busy} onClick={() => act(true)}><CheckCircle2 />Подтвердить</Button>
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center gap-3 text-sm">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-sm bg-surface text-muted-foreground"><ScanFace className="size-4" /></span>
+            <span className="text-pretty text-muted-foreground">{f.status === "ACTIVE" ? `Эталон ${FACE_TEXT[f.source ?? "HR"]}${f.at ? `, ${dateRu(f.at)}` : ""}` : f.status === "REJECTED" ? `Отклонено: ${f.comment}. Ждём новый снимок` : "Эталона нет: сотрудник добавит лицо в приложении после активации. До этого на «QR + лицо» пропустит только охранник"}</span>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+};
 
 export const PersonPage = () => {
   const { id = "" } = useParams();
@@ -60,6 +100,7 @@ export const PersonPage = () => {
               </div>
             </Card>
           </motion.div>
+          <motion.div variants={fadeUp}><FaceCard id={w.id} /></motion.div>
           <motion.div variants={fadeUp}>
             <Card>
               <CardHeader><CardTitle>Устройства</CardTitle></CardHeader>

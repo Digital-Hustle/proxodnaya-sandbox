@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { motion } from "motion/react";
-import { Link2, MonitorSmartphone, Pencil, Unlink, BookOpen, ScanLine } from "lucide-react";
-import { api, useDb, KIOSK_ONLINE_MS, terminalModeOf, type Kiosk, type TerminalMode, type OfflinePolicy } from "@/shared/api";
+import { Link2, MonitorSmartphone, Pencil, Unlink, BookOpen, ScanLine, KeyRound, ShieldCheck, Wrench } from "lucide-react";
+import { api, useDb, KIOSK_ONLINE_MS, terminalModeOf, CODE_ROLES, type Kiosk, type TerminalMode, type OfflinePolicy, type TerminalCodeKind } from "@/shared/api";
+import { useSession } from "@/entities/session";
 import { Button, Card, CardHeader, CardTitle, Dialog, EmptyState, Field, Input, PageHeader, Select, Status, toast } from "@/shared/ui";
 import { useNow } from "@/shared/hooks";
-import { agoRu } from "@/shared/lib";
+import { agoRu, weakTerminalCode, CODE_MIN, CODE_MAX } from "@/shared/lib";
 import { routes } from "@/shared/const/router";
 import { fadeUp, stagger } from "@/shared/config/motion";
 import { MODE_LABEL } from "@/widgets/kiosk-terminal";
@@ -71,6 +72,79 @@ const EditDialog = ({ kiosk, onClose }: { kiosk: Kiosk; onClose: () => void }) =
         </> : <GlobalNote />}
       </div>
     </Dialog>
+  );
+};
+
+const CODES: { kind: TerminalCodeKind; title: string; text: string; icon: typeof KeyRound }[] = [
+  { kind: "service", title: "Сервисный код", text: "Открывает сервисную панель киоска: состояние, отвязка, демо-пульт. Нужен инженеру терминалов.", icon: Wrench },
+  { kind: "guard", title: "Код охранника", text: "Подтверждает ручной пропуск, когда у терминала нет связи. Проверяется на самом киоске.", icon: ShieldCheck },
+];
+
+const CodeDialog = ({ kind, onClose }: { kind: TerminalCodeKind; onClose: () => void }) => {
+  const userId = useSession((x) => x.userId);
+  const [a, setA] = useState("");
+  const [b, setB] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const weak = a.length >= CODE_MIN ? weakTerminalCode(a) : null;
+  const mismatch = b.length >= a.length && a.length >= CODE_MIN && a !== b;
+  const ok = !weak && a.length >= CODE_MIN && a === b;
+  const save = async () => {
+    setBusy(true); setErr(null);
+    try { await api.setTerminalCode(kind, a, userId); toast.success("Код сменён. Терминалы получат его при следующей связи с сервером"); onClose(); }
+    catch (x) { setErr(x instanceof Error ? x.message : "Не удалось сменить код"); } finally { setBusy(false); }
+  };
+  const digits = (v: string) => v.replace(/\D/g, "").slice(0, CODE_MAX);
+  return (
+    <Dialog open onClose={onClose} title={kind === "service" ? "Новый сервисный код" : "Новый код охранника"}
+      description="Код один для всех терминалов. Сообщите его только тем, кому он нужен: в журнале доступа останется, кто и когда его сменил"
+      footer={<><Button variant="quiet" onClick={onClose}>Отмена</Button><Button disabled={!ok || busy} onClick={save}><KeyRound />Сменить код</Button></>}>
+      <form className="flex flex-col gap-5" onSubmit={(e) => { e.preventDefault(); if (ok) save(); }}>
+        <Field label="Новый код" hint={`От ${CODE_MIN} до ${CODE_MAX} цифр`} error={weak ?? err}>
+          <Input type="password" inputMode="numeric" autoComplete="new-password" autoFocus value={a} onChange={(e) => { setA(digits(e.target.value)); setErr(null); }} placeholder="••••" className="tracking-widest" />
+        </Field>
+        <Field label="Повторите код" error={mismatch ? "Коды не совпадают" : null}>
+          <Input type="password" inputMode="numeric" autoComplete="new-password" value={b} onChange={(e) => setB(digits(e.target.value))} placeholder="••••" className="tracking-widest" />
+        </Field>
+        <button type="submit" hidden />
+      </form>
+    </Dialog>
+  );
+};
+
+/** ADR-046: коды на терминалах. Заводские подсвечиваются — их надо сменить до запуска объекта. */
+const CodesCard = () => {
+  const db = useDb();
+  const role = useSession((x) => x.role);
+  const now = useNow(30000);
+  const [edit, setEdit] = useState<TerminalCodeKind | null>(null);
+  const nameOf = (id: string) => db.admins?.find((u) => u.id === id)?.name ?? "администратор";
+  return (
+    <Card>
+      <CardHeader><CardTitle>Коды на терминалах</CardTitle></CardHeader>
+      <ul className="divide-y divide-border">
+        {CODES.map(({ kind, title, text, icon: Icon }) => {
+          const rec = db.terminalCodes?.[kind];
+          const allowed = CODE_ROLES[kind].includes(role);
+          const action = allowed ? <Button variant={rec ? "secondary" : "primary"} size="sm" onClick={() => setEdit(kind)}><KeyRound />{rec ? "Сменить" : "Задать код"}</Button>
+            : <span className="text-xs text-muted-foreground">Меняет администратор</span>;
+          return (
+            <li key={kind} className="flex items-start gap-3 px-4 py-4 sm:items-center sm:px-6">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-surface text-muted-foreground"><Icon className="size-5" /></span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2 font-medium">{title}{rec ? <Status tone="success" dot>задан</Status> : <Status tone="warning" dot>заводской</Status>}</div>
+                <p className="text-pretty text-sm text-muted-foreground">{text}</p>
+                <p className="mt-1 text-xs text-subtle-foreground">{rec ? `Сменил ${nameOf(rec.by)} ${agoRu(rec.updatedAt, now)} · ${rec.digits} цифр` : "Действует заводской код — смените его до запуска объекта"}</p>
+                <div className="mt-3 sm:hidden">{action}</div>
+              </div>
+              <div className="hidden shrink-0 sm:block">{action}</div>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="border-t border-border px-4 py-3 text-pretty text-xs text-muted-foreground sm:px-6">Сервер хранит только хэш кода. Терминал получает его вместе со снимком допусков, поэтому код охранника работает и без связи. После 5 неверных попыток ввод на киоске блокируется на минуту.</p>
+      {edit && <CodeDialog kind={edit} onClose={() => setEdit(null)} />}
+    </Card>
   );
 };
 
@@ -158,6 +232,7 @@ export const TerminalsPage = () => {
             </ul>
           )}
         </Card></motion.div>
+        <motion.div variants={fadeUp}><CodesCard /></motion.div>
       </motion.div>
       {edit && <EditDialog kiosk={edit} onClose={() => setEdit(null)} />}
     </div>

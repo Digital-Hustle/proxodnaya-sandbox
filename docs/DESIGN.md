@@ -143,9 +143,28 @@
 ### Интерфейс сотрудника v3.2 (ADR-044)
 - **Оболочка** — та же `HeaderBar` (`inner="max-w-lg"`) и плавающая нижняя навигация, что у кабинета на телефоне. Контент `max-w-lg px-4 pt-6 sm:px-6 sm:pt-8`.
 - **Заголовки** — только `PageHeader` (kicker + title + sub), без самодельных h1.
-- **Пропуск** (v3.4, ADR-045) — заголовок экрана — приветствие по имени, местоположение — в подзаголовке. Карточка без цветной шапки: только QR и цифры дня (`flex`, ячейки `flex-auto`, чтобы время смены не обрезалось) за пунктирной линией отрыва (`border-dashed border-border-strong`).
+- **Пропуск** (v4, ADR-046) — см. раздел ниже; v3.x больше не используется.
 - **Профиль** — 4-я вкладка: допуск, «Мои объекты», «Этот телефон» + установка, оформление, `danger-soft` «Выйти с этого телефона» с подтверждением.
 - **Морф QR** — `StyledQr morph`: волна от центра за `duration.slow × 2.2` (`ease.inOut`), уходящие модули сжимаются, новые вырастают с перелётом.
 - **Полоса обновления** — только `CountdownBar` (translateX, одна линейная анимация `ease.linear` на окно). `scaleX` внутри скруглённой дорожки не использовать — WebKit рвёт клип.
 - **Плитки KPI** — первая акцентная `bg-brand-deep`, остальные `bg-card`, как на «Сводке».
 - **Календарь** — клетки `aspect-square rounded-sm`: смена `bg-surface`, сегодня `bg-accent ring-1 ring-ring`, выбранный день `bg-brand-deep text-white`, точка-статус `size-1`.
+
+### v4 (ADR-046): пропуск, вход, стриминг, график
+- **Пропуск v4 — по мотивам лендинга.** Приветствие — `PageHeader`. Карточка — `motion.article rounded-2xl bg-brand-deep p-4 sm:p-5 shadow-pop` + слой `bg-sheen`; шапка: `LogoMark size-10`, «Пропуск на объект» и объект (ссылка в профиль, `truncate`), пилюля зоны `bg-white/15 backdrop-blur-md max-w-2/5`. QR — `PassQr tone="brand"`: белая плашка `rounded-xl bg-white p-3 shadow-float`, дорожка `bg-white/20`, заливка `bg-white`, подписи `text-white/80`. Под карточкой — плитки `Tile` (`rounded-xl bg-card shadow-card`, цифра `font-display text-2xl tracking-hero`, подпись `text-sm text-muted-foreground`), сетка `grid-cols-2`, смена — `col-span-2` с `Progress`. Инфо-блок — `bg-muted` с иконкой на `bg-brand-deep`.
+- **Полосы.** `Progress` и `CountdownBar` двигают заливку `translateX`, не `scaleX`. На фирменной заливке — `Progress tone="white"` / `CountdownBar fillClassName="bg-white"`.
+- **Поле кода — только `CodeInput`** (`shared/ui`): ячейки поверх одного `input` с `autocomplete="one-time-code"`, `inputMode="numeric"`. Состояния `idle | busy | error | success`: цифра выпрыгивает (`spring.pop`), ячейка заливается `bg-accent` из центра; `busy` — волна `y` по ячейкам; `error` — отскок всего поля пружиной (`x: [18, 0]`) и очистка; `success` — заливка `bg-brand-deep` по очереди и галочка. Отправка — сама по `onComplete`, без кнопки.
+- **Страница входа** — `HeaderBar` + центр `max-w-md`: пилюля-статус, заголовок Display `text-4xl/5xl tracking-hero`, панель `rounded-3xl bg-card/85 backdrop-blur-xl`. Шаги «почта → код» меняются горизонтальным сдвигом (`spring.soft`). Демо-«письмо» — уведомление `shadow-float` над панелью.
+- **Стриминг ответа** — `StreamReply`: активный шаг — текст с бегущим бликом (`Shimmer`, 2 ключевые точки `backgroundPosition`, `ease.linear`, повтор), пройденный — галочка `popIn`; куски текста — `opacity + blur(6px→0)` за `duration.slow`; курсор — точка `bg-brand-gradient`, мигает `ease.inOut`. Во время ответа кнопка отправки становится «Стоп» (`Square`). Использованные инструменты остаются строкой над ответом.
+- **График недели — только `WeekPlanEditor`** (`features/plan-week`): шаблоны-пилюли, `Segmented` «Одинаково все дни / По дням». «По дням»: строка дня — `Switch` + имя (`sm:w-40`), время `w-full sm:w-auto sm:flex-1`, кнопка «на все дни» (`CopyCheck`), выходной — `ml-auto text-subtle-foreground`.
+- **Выбор времени.** Колонки центрируются один раз при открытии своим `scrollTop`; `scrollIntoView` внутри поповеров не использовать — он двигает страницу и сбрасывает прокрутку. `Popover` пересчитывает позицию только от прокрутки вне панели.
+- **Установка.** `InstallButton` сам решает: системный запрос или диалог-инструкция (iPhone, Mac Safari, Firefox/Samsung на Android). Кнопку не прятать на iOS.
+- **Лицо для прохода** — круг камеры `rounded-full shadow-pop`, кольцо прогресса — SVG `pathLength` в обёртке `absolute -inset-3` (без произвольных размеров), подсказки поворота меняются `AnimatePresence mode="wait"`.
+- **Коды на терминалах** — карточка-список: иконка `bg-surface`, статус `Status` «задан / заводской», действие справа на `sm+` и под текстом на телефоне.
+
+### Чек-лист экрана (для всех новых экранов)
+1. Только токены и классы шкалы; inline `style` — для вычисляемых значений (сетка ячеек, позиция).
+2. Анимации — `spring.* / tween.* / duration.* / ease.*`, не больше 2 ключевых точек, без CSS-анимаций.
+3. Индикаторы дорожек — `TrackIndicator`; полосы — `Progress` / `CountdownBar`; коды — `CodeInput`; график — `WeekPlanEditor`.
+4. Проверено на 390 и 1440, в светлой и тёмной теме, без горизонтальной прокрутки; на iPhone — `min-h-svh`, шрифт полей ввода `text-base` (иначе iOS увеличивает страницу).
+5. Тексты — продуктовые: что произошло и что сделать дальше; ошибки сервера (`detail`) показываются как есть.

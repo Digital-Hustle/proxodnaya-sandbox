@@ -17,6 +17,19 @@ export const installState = {
   installed: () => matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches,
 };
 
+/**
+ * Как поставить приложение, если браузер не предлагает установку сам: Safari на iPhone/iPad и Mac
+ * не шлёт beforeinstallprompt, Firefox и Samsung Internet на Android — тоже. Тогда показываем инструкцию.
+ */
+export type InstallHow = "ios" | "ios-other" | "mac-safari" | "android";
+export const manualInstall = (ua = navigator.userAgent): InstallHow | null => {
+  const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  if (ios) return /CriOS|FxiOS|EdgiOS|YaBrowser/.test(ua) ? "ios-other" : "ios";
+  if (/Macintosh/.test(ua) && /Safari/.test(ua) && !/Chrome|Chromium|Edg\/|Firefox/.test(ua)) return "mac-safari";
+  if (/Android/.test(ua) && /Firefox|SamsungBrowser/.test(ua)) return "android";
+  return null;
+};
+
 export const promptInstall = async () => {
   const p = deferred;
   if (!p) return false;

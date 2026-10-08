@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useOutletContext } from "react-router";
+import { Link, useNavigate, useOutletContext } from "react-router";
 import { motion } from "motion/react";
-import { Building2, KeyRound, LogOut, Smartphone, WifiOff } from "lucide-react";
+import { Building2, ChevronRight, KeyRound, LogOut, ScanFace, Smartphone, WifiOff } from "lucide-react";
 import { api, useDb, presenceNow, workerSites, siteOfZone } from "@/shared/api";
 import { Avatar, Button, Card, CardHeader, CardTitle, Dialog, InstallButton, PageHeader, Status, ThemePicker, toast } from "@/shared/ui";
 import { cn, deleteKey } from "@/shared/lib";
@@ -11,6 +11,8 @@ import type { WorkerCtx } from "@/widgets/worker-shell";
 import { forgetWorkerCard, useWorkerCard } from "../lib/card";
 
 const dateLong = (v: string | number) => new Date(typeof v === "string" ? `${v}T12:00:00` : v).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+const FACE_LABEL = { NONE: <Status tone="warning" dot>не добавлено</Status>, PENDING: <Status tone="info" dot>на проверке</Status>, REJECTED: <Status tone="danger" dot>переснять</Status>, ACTIVE: <Status tone="success" dot>подтверждено</Status> } as const;
+
 const Row = ({ icon, k, v }: { icon: React.ReactNode; k: string; v: React.ReactNode }) => (
   <div className="flex min-w-0 items-center gap-3 px-4 py-3 sm:px-6">
     <span className="flex size-9 shrink-0 items-center justify-center rounded-sm bg-surface text-muted-foreground [&_svg]:size-4">{icon}</span>
@@ -23,6 +25,7 @@ const Row = ({ icon, k, v }: { icon: React.ReactNode; k: string; v: React.ReactN
 export const WorkerProfilePage = () => {
   const { key } = useOutletContext<WorkerCtx>();
   const db = useDb();
+  const faceLabel = FACE_LABEL[db.workers.find((x) => x.id === key.workerId)?.face?.status ?? "ACTIVE"];
   const nav = useNavigate();
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -91,6 +94,9 @@ export const WorkerProfilePage = () => {
               <Row icon={<Smartphone />} k="Устройство" v={device?.label ?? "Телефон"} />
               <Row icon={<KeyRound />} k="Ключ создан" v={dateLong(key.createdAt)} />
               <Row icon={<WifiOff />} k="Без сети" v="QR работает" />
+              <Link to={routes.workerFace} className="outline-none transition-colors duration-fast hover:bg-surface focus-visible:bg-surface">
+                <Row icon={<ScanFace />} k="Лицо для прохода" v={<span className="inline-flex items-center gap-1">{faceLabel}<ChevronRight className="size-4 text-subtle-foreground" /></span>} />
+              </Link>
             </div>
           </Card>
         </motion.div>

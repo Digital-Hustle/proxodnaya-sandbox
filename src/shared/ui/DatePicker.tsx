@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { cn, todayKey } from "@/shared/lib";
 import { popIn, spring, tween } from "@/shared/config/motion";
@@ -128,13 +128,18 @@ export const DateRangePicker = ({ value, onChange, max, presets = [], ...rest }:
 const H = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
 const M = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"));
 
-/** Время ЧЧ:ММ: две колонки (часы и минуты с шагом 5), текущее значение видно сразу. */
-export const TimePicker = ({ value, onChange, ...rest }: Aria & { value: string; onChange: (v: string) => void }) => {
-  const p = usePopover(200, 300);
-  const [h, m] = (value || "08:00").split(":");
-  const col = (list: string[], cur: string, set: (v: string) => void, label: string) => (
-    <div className="flex h-64 w-16 flex-col gap-0.5 overflow-y-auto overscroll-contain" role="listbox" aria-label={label}
-      ref={(el) => { el?.querySelector<HTMLElement>("[aria-selected=true]")?.scrollIntoView({ block: "center" }); }}>
+/**
+ * Колонка значений. Выбранное центрируется один раз — при открытии, и только прокруткой самой колонки
+ * (без scrollIntoView, который двигает страницу). Дальше колонку крутит пользователь: перерисовки её не сбрасывают.
+ */
+const TimeCol = ({ list, cur, set, label }: { list: string[]; cur: string; set: (v: string) => void; label: string }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current, sel = el?.querySelector<HTMLElement>("[aria-selected=true]");
+    if (el && sel) el.scrollTop = sel.offsetTop - el.clientHeight / 2 + sel.offsetHeight / 2;
+  }, []);
+  return (
+    <div ref={ref} className="relative flex h-64 w-16 flex-col gap-0.5 overflow-y-auto overscroll-contain" role="listbox" aria-label={label}>
       {list.map((v) => (
         <button key={v} type="button" role="option" aria-selected={v === cur} onClick={() => set(v)}
           className={cn("relative shrink-0 rounded-md py-2 text-sm tabular-nums transition-colors duration-fast", v === cur ? "font-semibold text-primary-foreground" : "hover:bg-surface")}>
@@ -143,13 +148,19 @@ export const TimePicker = ({ value, onChange, ...rest }: Aria & { value: string;
       ))}
     </div>
   );
+};
+
+/** Время ЧЧ:ММ: две колонки (часы и минуты с шагом 5), текущее значение видно сразу. */
+export const TimePicker = ({ value, onChange, ...rest }: Aria & { value: string; onChange: (v: string) => void }) => {
+  const p = usePopover(200, 300);
+  const [h, m] = (value || "08:00").split(":");
   return (
     <>
       <Trigger state={p} text={value} placeholder="ЧЧ:ММ" icon={<Clock />} {...rest} />
       <PopoverPanel state={p} label="Выбор времени" className="flex gap-1">
-        {col(H, h, (v) => onChange(`${v}:${m}`), "Часы")}
+        <TimeCol list={H} cur={h} set={(v) => onChange(`${v}:${m}`)} label="Часы" />
         <span className="w-px self-stretch bg-border" />
-        {col(M.includes(m) ? M : [...M, m].sort(), m, (v) => { onChange(`${h}:${v}`); p.setOpen(false); }, "Минуты")}
+        <TimeCol list={M.includes(m) ? M : [...M, m].sort()} cur={m} set={(v) => { onChange(`${h}:${v}`); p.setOpen(false); }} label="Минуты" />
       </PopoverPanel>
     </>
   );

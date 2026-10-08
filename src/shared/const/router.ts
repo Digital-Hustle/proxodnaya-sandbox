@@ -6,6 +6,8 @@ export const routes = {
   workerHistory: "/worker/history",
   workerShifts: "/worker/shifts",
   workerProfile: "/worker/profile",
+  workerFace: "/worker/face",
+  login: "/login",
   admin: "/admin",
   adminPeople: "/admin/people",
   adminPersonNew: "/admin/people/new",

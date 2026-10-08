@@ -19,7 +19,7 @@ const MODES: { v: TerminalMode; title: string; badge?: string; text: string }[] 
   { v: "QR_ONLY", title: "Только QR", text: "Быстрее всего: подпись, 30-секундное окно, одноразовость кода и правила допуска — без сверки лица. Подходит для внутренних турникетов и пиковых смен." },
 ];
 const OFFLINE: { v: OfflinePolicy; title: string; badge?: string; text: string }[] = [
-  { v: "GUARD", title: "Пропуск охранником", badge: "Рекомендуется", text: "Терминал не пропускает сам. Охранник проверяет личность, вводит PIN и причину; запись помечается как ручная и уходит в журнал, когда связь вернётся." },
+  { v: "GUARD", title: "Пропуск охранником", badge: "Рекомендуется", text: "Терминал не пропускает сам. Охранник проверяет личность, вводит свой код и причину; запись помечается как ручная и уходит в журнал, когда связь вернётся." },
   { v: "CLOSED", title: "Проход закрыт", text: "До восстановления связи терминал никого не пропускает. Строже всего, но у турникета соберётся очередь." },
   { v: "LOCAL", title: "Автономная проверка QR", text: "Терминал сам проверяет подпись QR по снимку допусков: закрытый ключ — в телефоне, открытые ключи и списки — на терминале. Пропускает в пределах срока, проходы уходят на сервер, когда связь вернётся." },
 ];
@@ -125,7 +125,7 @@ export const SettingsPage = () => {
         <motion.div variants={fadeUp}><Card>
           <CardHeader><CardTitle>Роли и доступ</CardTitle></CardHeader>
           <div className="flex flex-col gap-4 p-4 sm:p-6">
-            <p className="text-pretty text-sm text-muted-foreground">Каждая роль видит только свои разделы. Инженер терминалов подключает киоски, но не видит персональные данные. Для демонстрации роль переключается в шапке.</p>
+            <p className="text-pretty text-sm text-muted-foreground">Каждая роль видит только свои разделы. Инженер терминалов подключает киоски, но не видит персональные данные. Чтобы посмотреть кабинет глазами другой роли, войдите под другим демо-пользователем.</p>
             <div className="overflow-x-auto rounded-md border border-border">
               <table className="w-full text-sm">
                 <thead className="bg-muted text-left text-muted-foreground"><tr><th className="px-3 py-2 font-medium">Роль</th>{PERMS.map((p) => <th key={p.id} className="whitespace-nowrap px-2 py-2 text-center font-medium">{p.label}</th>)}</tr></thead>

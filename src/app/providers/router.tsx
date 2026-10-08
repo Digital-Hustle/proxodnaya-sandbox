@@ -11,6 +11,7 @@ import { WorkerShell } from "@/widgets/worker-shell";
 // react-router дожидается чанка до смены экрана, поэтому переход без мигания пустого экрана.
 const kiosk = () => import("@/pages/kiosk");
 const worker = () => import("@/pages/worker");
+const login = () => import("@/pages/login");
 const dashboard = () => import("@/pages/admin-dashboard");
 const people = () => import("@/pages/admin-people");
 const journal = () => import("@/pages/admin-journal");
@@ -71,8 +72,10 @@ export const router = createHashRouter([
         { path: "history", lazy: async () => ({ Component: (await worker()).WorkerHistoryPage }) },
         { path: "shifts", lazy: async () => ({ Component: (await worker()).WorkerShiftsPage }) },
         { path: "profile", lazy: async () => ({ Component: (await worker()).WorkerProfilePage }) },
+        { path: "face", lazy: async () => ({ Component: (await worker()).WorkerFacePage }) },
       ],
     },
+    { path: "/login", lazy: async () => ({ Component: (await login()).LoginPage }) },
     {
       path: "/admin", element: <AdminShell />,
       children: [

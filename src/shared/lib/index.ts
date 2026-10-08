@@ -8,3 +8,4 @@ export * from "./sound";
 export * from "./qrShape";
 export * from "./chain";
 export * from "./pwa";
+export * from "./terminalCode";
