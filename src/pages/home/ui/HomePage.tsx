@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Link } from "react-router";
 import { motion } from "motion/react";
 import { ArrowRight, ScanLine, ChevronRight, ScrollText, BarChart3, Sparkles, ShieldCheck } from "lucide-react";
-import { Logo, LogoMark, Status, Button, AnimatedNumber, Aurora, HeaderBar, PreferencesButton, StyledQr, BrandConicFill } from "@/shared/ui";
+import { Logo, LogoMark, Status, Button, AnimatedNumber, HeaderBar, PreferencesButton, StyledQr, BrandConicFill } from "@/shared/ui";
 import { DEMO_INVITES, useDb, presenceNow, dailyStats } from "@/shared/api";
 import { todayKey, cn } from "@/shared/lib";
 import { routes, absoluteUrl } from "@/shared/const/router";
@@ -63,7 +63,6 @@ export const HomePage = () => {
 
   return (
     <div className="relative isolate min-h-dvh overflow-x-clip">
-      <Aurora fixed intensity={0.85} />
       <HeaderBar inner="max-w-6xl">
         <Logo className="px-1.5" />
         <nav aria-label="Разделы" className="ml-auto hidden items-center gap-1 md:flex">

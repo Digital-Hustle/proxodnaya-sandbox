@@ -41,7 +41,13 @@ export type Attempt = {
   source: "QR" | "MANUAL" | "FACE";
   score?: number;
   note?: string;
+  /** ADR-040: кто принял ручное решение (охранник поста). */
+  guard?: string;
+  /** ADR-040: проверка ручного пропуска вторым человеком. Нет поля — ждёт подтверждения. */
+  review?: ManualReview;
 };
+
+export type ManualReview = { status: "CONFIRMED" | "DISPUTED"; by: string; at: number; comment?: string };
 
 export type Challenge = { kind: "turn-left" | "turn-right" | "blink" | "nod"; text: string; timeoutMs: number };
 
@@ -74,7 +80,11 @@ export type Settings = {
   terminalMode?: TerminalMode;
   /** ADR-038: что делает киоск без связи с сервером. Автоматического пропуска офлайн нет ни в одном режиме. */
   offlinePolicy?: OfflinePolicy;
+  /** ADR-038/040: GLOBAL — логика одна для всех терминалов (по умолчанию), PER_KIOSK — у каждого своя, а здесь — значение по умолчанию. */
+  terminalScope?: TerminalScope;
 };
+
+export type TerminalScope = "GLOBAL" | "PER_KIOSK";
 
 /** ADR-038. QR_FACE — QR + сверка лица 1:1 (по умолчанию). FACE_FIRST — идентификация по лицу 1:N на сервере, QR — запасной путь. */
 export type TerminalMode = "QR_FACE" | "FACE_FIRST";
@@ -89,6 +99,8 @@ export type Kiosk = {
   checkpointId?: string;
   /** Переопределение Settings.terminalMode для этого терминала. */
   mode?: TerminalMode;
+  /** Переопределение Settings.offlinePolicy (только при terminalScope = PER_KIOSK). */
+  offlinePolicy?: OfflinePolicy;
   pairedAt?: number;
   lastSeen: number;
   createdAt: number;

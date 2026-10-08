@@ -2,11 +2,11 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Role } from "@/shared/api";
 
-export type Perm = "dashboard" | "people" | "journal" | "shifts" | "analytics" | "assistant" | "terminals" | "settings";
+export type Perm = "dashboard" | "people" | "journal" | "shifts" | "analytics" | "assistant" | "terminals" | "settings" | "reviewManual";
 
 export const PERMS: { id: Perm; label: string }[] = [
   { id: "dashboard", label: "Обстановка" }, { id: "people", label: "Люди" }, { id: "journal", label: "Журнал" }, { id: "shifts", label: "Смены" },
-  { id: "analytics", label: "Аналитика" }, { id: "assistant", label: "Помощник" }, { id: "terminals", label: "Терминалы" }, { id: "settings", label: "Настройки" },
+  { id: "analytics", label: "Аналитика" }, { id: "assistant", label: "Помощник" }, { id: "terminals", label: "Терминалы" }, { id: "settings", label: "Настройки" }, { id: "reviewManual", label: "Проверка ручных" },
 ];
 
 export const ROLES: { id: Role; label: string; text: string }[] = [
@@ -19,7 +19,7 @@ export const ROLES: { id: Role; label: string; text: string }[] = [
 
 const MATRIX: Record<Role, Perm[]> = {
   ADMIN: PERMS.map((p) => p.id),
-  SECURITY_OFFICER: ["dashboard", "people", "journal", "analytics", "terminals", "settings"],
+  SECURITY_OFFICER: ["dashboard", "people", "journal", "analytics", "terminals", "settings", "reviewManual"],
   MANAGER: ["dashboard", "people", "journal", "shifts", "analytics", "assistant"],
   INSTALLER: ["dashboard", "terminals"],
   GUARD: ["dashboard", "journal"],

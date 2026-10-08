@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { FlaskConical, Maximize } from "lucide-react";
-import { api, useDb, terminalModeOf, type DecisionResult } from "@/shared/api";
+import { api, useDb, terminalModeOf, offlinePolicyOf, type DecisionResult } from "@/shared/api";
 import { Button, Logo } from "@/shared/ui";
 import { useNow, useOnline } from "@/shared/hooks";
 import { hhmm, cn, randomId } from "@/shared/lib";
@@ -54,7 +54,7 @@ export const KioskPage = () => {
   const view = !paired ? "pair" : online ? "live" : "offline";
 
   return (
-    <div className="flex h-dvh flex-col gap-3 bg-background px-3 pb-3 pt-safe text-foreground sm:gap-4 sm:px-5 sm:pb-5">
+    <div className="flex h-dvh flex-col gap-3 px-3 pb-3 pt-safe text-foreground sm:gap-4 sm:px-5 sm:pb-5">
       <header className="flex shrink-0 items-center gap-2 pt-3 sm:gap-3 sm:pt-4">
         <button type="button" aria-label="Сервисная панель (удерживайте)" onPointerDown={startHold} onPointerUp={endHold} onPointerLeave={endHold} onContextMenu={(e) => e.preventDefault()}
           className="shrink-0 select-none rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring" onKeyDown={(e) => { if (e.key === "Enter" && e.shiftKey) setService(true); }}>
@@ -82,7 +82,7 @@ export const KioskPage = () => {
         <motion.div key={view + (kiosk?.pairCode ?? "")} className="relative flex min-h-0 flex-1 flex-col" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} transition={tween.base}>
           {view === "pair" && <PairingScreen code={kiosk?.pairCode ?? "••••••"} />}
           {view === "live" && checkpoint && <KioskTerminal checkpointId={checkpoint.id} mode={mode} demoOpen={demoOpen} setDemoOpen={setDemoOpen} />}
-          {view === "offline" && checkpoint && <OfflineScreen policy={db.settings.offlinePolicy ?? "GUARD"} checkpointId={checkpoint.id} onResult={setOfflineResult} />}
+          {view === "offline" && checkpoint && <OfflineScreen policy={offlinePolicyOf(db, kiosk)} checkpointId={checkpoint.id} onResult={setOfflineResult} />}
           <AnimatePresence>{view === "offline" && offlineResult && <DecisionScreen key={offlineResult.attemptId} result={offlineResult} onDone={() => setOfflineResult(null)} />}</AnimatePresence>
         </motion.div>
       </AnimatePresence>

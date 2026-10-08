@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import { ShieldCheck, WifiOff } from "lucide-react";
 import { api, useDb, type DecisionResult, type OfflinePolicy } from "@/shared/api";
-import { Aurora, Button, Dialog, Field, Input, Select, toast } from "@/shared/ui";
+import { Aurora, KIOSK_AURORA, Button, Dialog, Field, Input, Select, toast } from "@/shared/ui";
 import { fadeUp, popIn, stagger, duration, ease } from "@/shared/config/motion";
 
 export const GUARD_PIN = "0000";
@@ -20,14 +20,14 @@ export const OfflineScreen = ({ policy, checkpointId, onResult }: { policy: Offl
   const [pin, setPin] = useState("");
   const pinBad = pin.length === 4 && pin !== GUARD_PIN;
   const submit = async () => {
-    const r = await api.kioskManual(who, checkpointId, `Без связи: ${note.trim()}`);
+    const r = await api.kioskManual(who, checkpointId, `Без связи: ${note.trim()}`, "Охранник поста · PIN");
     setOpen(false); setNote(""); setPin("");
-    toast.info("Ручной пропуск сохранён и уйдёт в журнал при появлении связи");
+    toast.info("Ручной пропуск сохранён. Когда появится связь, он уйдёт в журнал на подтверждение");
     onResult(r);
   };
   return (
     <div className="relative isolate flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-card shadow-card ring-1 ring-white/10">
-      <div aria-hidden className="absolute inset-0 opacity-50"><Aurora tone="kiosk" intensity={0.4} /></div>
+      <div aria-hidden className="absolute inset-0"><Aurora tone="kiosk" intensity={KIOSK_AURORA} /></div>
       <motion.div variants={stagger(0.06)} initial="hidden" animate="show" className="relative flex flex-1 flex-col items-center justify-center gap-6 p-5 text-center text-white sm:p-8">
         <motion.span variants={popIn} className="relative flex size-20 items-center justify-center rounded-full bg-warning/20 text-warning">
           <motion.span aria-hidden className="absolute inset-0 rounded-full bg-warning/20" animate={{ scale: [1, 1.35], opacity: [0.6, 0] }} transition={pulse} />

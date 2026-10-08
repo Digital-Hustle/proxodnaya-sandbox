@@ -43,7 +43,12 @@ type Props = {
   fixed?: boolean;
 };
 
-export const Aurora = ({ className, tone = "auto", intensity = 0.8, band = true, fixed }: Props) => {
+/** Одна сила сияния на всех экранах (главная, пропуск, кабинет, киоск) — фон не «прыгает» при переходах. */
+export const PAGE_AURORA = 0.6;
+/** Экран киоска: тёмная палитра, та же сила на всех состояниях (ожидание, привязка, нет связи). */
+export const KIOSK_AURORA = 0.9;
+
+export const Aurora = ({ className, tone = "auto", intensity = PAGE_AURORA, band = true, fixed }: Props) => {
   const host = useRef<HTMLDivElement>(null);
   const dark = useIsDark();
   const key = tone === "auto" ? (dark ? "dark" : "light") : tone;

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import { RotateCcw, Database } from "lucide-react";
-import { api, useDb, FACE_FIRST_MARGIN, type Settings, type CheckpointMode, type TerminalMode, type OfflinePolicy, isScaled, SCALE_WORKERS } from "@/shared/api";
+import { api, useDb, FACE_FIRST_MARGIN, type Settings, type CheckpointMode, type TerminalMode, type OfflinePolicy, type TerminalScope, isScaled, SCALE_WORKERS } from "@/shared/api";
 import { Check, Minus, BookOpen, ShieldAlert } from "lucide-react";
 import { useSession, can, ROLES, PERMS } from "@/entities/session";
 import { cn } from "@/shared/lib";
@@ -21,6 +21,11 @@ const OFFLINE: { v: OfflinePolicy; title: string; badge?: string; text: string }
   { v: "CLOSED", title: "Проход закрыт", text: "До восстановления связи терминал никого не пропускает. Строже всего, но у турникета соберётся очередь." },
 ];
 
+const SCOPES: { v: TerminalScope; title: string; badge?: string; text: string }[] = [
+  { v: "GLOBAL", title: "Одна для всех терминалов", badge: "По умолчанию", text: "Логика и поведение без связи задаются здесь и сразу действуют на всех киосках объекта." },
+  { v: "PER_KIOSK", title: "Своя у каждого терминала", text: "Здесь — значение по умолчанию, а в «Терминалах» каждому киоску можно задать свою логику и поведение без связи." },
+];
+
 const Choice = ({ active, onClick, title, text, badge }: { active: boolean; onClick: () => void; title: string; text: string; badge?: string }) => (
   <motion.button type="button" role="radio" aria-checked={active} onClick={onClick} whileTap={{ scale: 0.98 }}
     className={cn("flex flex-col gap-1.5 rounded-lg border p-4 text-left outline-none transition-colors duration-fast focus-visible:ring-2 focus-visible:ring-ring", active ? "border-primary bg-accent text-accent-foreground" : "border-border hover:bg-surface")}>
@@ -37,6 +42,7 @@ export const SettingsPage = () => {
   const scaled = isScaled(db);
   const role = useSession((x) => x.role);
   const set = (patch: Partial<Settings>) => api.updateSettings(patch);
+  const perKiosk = (s.terminalScope ?? "GLOBAL") === "PER_KIOSK";
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader title="Настройки" sub="Логика терминалов, правила прохода, роли и демо-режим" />
@@ -45,7 +51,14 @@ export const SettingsPage = () => {
           <CardHeader><CardTitle>Логика терминала</CardTitle></CardHeader>
           <div className="flex flex-col gap-6 p-4 sm:p-6">
             <div className="flex flex-col gap-3">
-              <div><div className="font-medium">Как сотрудник проходит</div><p className="text-sm text-muted-foreground">Для всех терминалов; отдельному киоску можно задать свою логику в «<Link to={routes.adminTerminals} className="underline underline-offset-4">Терминалах</Link>». Решение всегда принимает сервер.</p></div>
+              <div><div className="font-medium">Где задаётся логика</div><p className="text-sm text-muted-foreground">Например, «Сначала лицо» на потоковом турникете и «QR + лицо» на складе — тогда нужна настройка по терминалам</p></div>
+              <div role="radiogroup" aria-label="Где задаётся логика" className="grid gap-3 sm:grid-cols-2">
+                {SCOPES.map((x) => <Choice key={x.v} active={(s.terminalScope ?? "GLOBAL") === x.v} onClick={() => set({ terminalScope: x.v })} title={x.title} text={x.text} badge={x.badge} />)}
+              </div>
+              {perKiosk && <Link to={routes.adminTerminals} className="self-start text-sm font-medium underline-offset-4 hover:underline">Настроить терминалы →</Link>}
+            </div>
+            <div className="flex flex-col gap-3">
+              <div><div className="font-medium">{perKiosk ? "Как сотрудник проходит · по умолчанию" : "Как сотрудник проходит"}</div><p className="text-sm text-muted-foreground">{perKiosk ? "Для новых терминалов и тех, кому не задана своя логика" : "Действует на всех терминалах объекта"}</p></div>
               <div role="radiogroup" aria-label="Логика терминала" className="grid gap-3 sm:grid-cols-2">
                 {MODES.map((x) => <Choice key={x.v} active={(s.terminalMode ?? "QR_FACE") === x.v} onClick={() => set({ terminalMode: x.v })} title={x.title} text={x.text} badge={x.badge} />)}
               </div>

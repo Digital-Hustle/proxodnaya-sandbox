@@ -6,6 +6,6 @@ export * from "./mock/derived";
 export * as api from "./mock/server";
 export type { ScanResult, WorkerDraft, Page, WorkerRow, WorkerFilter, WorkerQuery, AttemptQuery, ShiftRow, ShiftFilter } from "./mock/server";
 export { PAGE_MAX, SCALE_WORKERS, isScaled } from "./mock/server";
-export { terminalModeOf, KIOSK_ONLINE_MS, FACE_FIRST_MARGIN } from "./mock/server";
+export { terminalModeOf, offlinePolicyOf, KIOSK_ONLINE_MS, FACE_FIRST_MARGIN } from "./mock/server";
 export * as assistant from "./mock/assistant";
 export type { AssistantAnswer, AssistantTable, LlmConfig } from "./mock/assistant";

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { FlaskConical, Unlink, ExternalLink, WifiOff } from "lucide-react";
-import { api, useDb, terminalModeOf, type Kiosk } from "@/shared/api";
+import { api, useDb, terminalModeOf, offlinePolicyOf, type Kiosk } from "@/shared/api";
 import { Button, Dialog, Field, Input, SwitchRow, Status, toast } from "@/shared/ui";
 import { routes } from "@/shared/const/router";
 import { agoRu } from "@/shared/lib";
@@ -37,7 +37,7 @@ export const ServicePanel = ({ open, onClose, kioskId, kiosk, simOffline, setSim
             {kiosk?.pairedAt && <Row k="Название" v={kiosk.name} />}
             {kiosk?.pairedAt && <Row k="Проходная" v={cp?.name ?? "—"} />}
             <Row k="Логика работы" v={MODE_LABEL[terminalModeOf(db, kiosk)]} />
-            <Row k="Без связи" v={(db.settings.offlinePolicy ?? "GUARD") === "GUARD" ? "пропуск охранником" : "проход закрыт"} />
+            <Row k="Без связи" v={offlinePolicyOf(db, kiosk) === "GUARD" ? "пропуск охранником" : "проход закрыт"} />
             {kiosk?.pairedAt && <Row k="Привязан" v={agoRu(kiosk.pairedAt)} />}
           </div>
           <p className="text-xs text-muted-foreground">Проходная и логика работы меняются только в админке: на самом терминале их нельзя подменить.</p>

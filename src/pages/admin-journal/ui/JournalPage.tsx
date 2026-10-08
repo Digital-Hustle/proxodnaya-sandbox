@@ -1,8 +1,9 @@
-import { useMemo } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
-import { Download, ScrollText, Search } from "lucide-react";
-import { api, useDb, REASONS, SYSTEM_CODES, type Decision } from "@/shared/api";
-import { Status, Button, Card, EmptyState, Input, Select, PageHeader, LoadMore, RowsSkeleton, toast } from "@/shared/ui";
+import { Download, ScrollText, Search, ShieldCheck } from "lucide-react";
+import { useSession, can, roleLabel } from "@/entities/session";
+import { api, useDb, REASONS, SYSTEM_CODES, type Decision, type Attempt } from "@/shared/api";
+import { Status, Button, Card, Dialog, EmptyState, Field, Input, Select, PageHeader, LoadMore, RowsSkeleton, toast } from "@/shared/ui";
 import { usePaged, useDebounced } from "@/shared/hooks";
 import { motion } from "motion/react";
 import { AttemptRow, DecisionBadge, decisionView, directionSource } from "@/entities/pass";
@@ -10,6 +11,49 @@ import { fadeUp, stagger } from "@/shared/config/motion";
 import { dayKey, hhmmss, dateRu, todayKey } from "@/shared/lib";
 
 const csv = (rows: (string | number)[][]) => rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
+
+/** Отметка ручного пропуска (ADR-040): ждёт / подтверждён / оспорен. Нажатие открывает подробности. */
+const ReviewMark = ({ a, onOpen }: { a: Attempt; onOpen: (a: Attempt) => void }) => (
+  <button type="button" onClick={() => onOpen(a)} className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    {!a.review ? <Status tone="warning" dot>ждёт подтверждения</Status> : a.review.status === "CONFIRMED" ? <Status tone="success" dot>подтверждён</Status> : <Status tone="danger" dot>оспорен</Status>}
+  </button>
+);
+
+const ReviewDialog = ({ a, who, where, onClose }: { a: Attempt; who: string; where: string; onClose: () => void }) => {
+  const role = useSession((x) => x.role);
+  const [comment, setComment] = useState("");
+  const [busy, setBusy] = useState(false);
+  const allowed = can(role, "reviewManual") && !a.review;
+  const act = async (status: "CONFIRMED" | "DISPUTED") => {
+    setBusy(true);
+    try {
+      await api.reviewManual(a.id, status, roleLabel(role), comment);
+      toast.success(status === "CONFIRMED" ? "Ручной пропуск подтверждён" : "Пропуск оспорен — нужен разбор инцидента");
+      onClose();
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Не удалось сохранить"); } finally { setBusy(false); }
+  };
+  const rows: [string, string][] = [
+    ["Сотрудник", who], ["Когда", `${dateRu(a.ts)}, ${hhmmss(a.ts)}`], ["Проходная", where],
+    ["Пропустил", a.guard ?? "Охранник поста"], ["Причина", a.note ?? "—"],
+  ];
+  if (a.review) {
+    rows.push([a.review.status === "CONFIRMED" ? "Подтвердил" : "Оспорил", `${a.review.by}, ${dateRu(a.review.at)} ${hhmmss(a.review.at)}`]);
+    if (a.review.comment) rows.push(["Комментарий", a.review.comment]);
+  }
+  return (
+    <Dialog open onClose={onClose} title="Ручной пропуск"
+      description={a.review ? "Проверка завершена и больше не меняется" : "Решение охранника действует сразу, но остаётся на проверке, пока его не подтвердит второй человек"}
+      footer={allowed ? <><Button variant="danger-soft" disabled={busy || !comment.trim()} onClick={() => act("DISPUTED")}>Оспорить</Button><Button disabled={busy} onClick={() => act("CONFIRMED")}><ShieldCheck />Подтвердить</Button></> : <Button variant="secondary" onClick={onClose}>Закрыть</Button>}>
+      <div className="flex flex-col gap-5">
+        <dl className="grid grid-cols-3 gap-x-4 gap-y-2.5 text-sm">
+          {rows.map(([k, v]) => <Fragment key={k}><dt className="text-muted-foreground">{k}</dt><dd className="col-span-2 min-w-0 break-words">{v}</dd></Fragment>)}
+        </dl>
+        {allowed && <Field label="Комментарий" hint="Обязателен, если оспариваете"><Input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Например: сверил по видео с камеры у турникета" /></Field>}
+        {!allowed && !a.review && <p className="text-pretty text-sm text-muted-foreground">Подтвердить может служба безопасности или администратор — охранник не проверяет сам себя.</p>}
+      </div>
+    </Dialog>
+  );
+};
 
 export const JournalPage = () => {
   const db = useDb();
@@ -26,8 +70,12 @@ export const JournalPage = () => {
   const src = (id: string) => directionSource(db.checkpoints.find((c) => c.id === id));
 
   const checkpoint = sp.get("cp") ?? "";
-  const filters = { day, decision, direction, checkpointId: checkpoint || undefined, q: dq };
-  const page = usePaged((cursor, limit) => api.queryAttempts({ ...filters, cursor, limit }), JSON.stringify(filters), { live: db.attempts.length, id: (a) => a.id, pageSize: 50 });
+  const reviewOnly = sp.get("review") === "pending";
+  const [open, setOpen] = useState<Attempt | null>(null);
+  const pending = useMemo(() => db.attempts.filter((a) => a.decision === "MANUAL" && !a.review).length, [db.attempts]);
+  const reviewed = db.attempts.length - pending;
+  const filters = { day: reviewOnly ? "all" : day, decision, direction, checkpointId: checkpoint || undefined, q: dq, review: reviewOnly ? ("PENDING" as const) : undefined };
+  const page = usePaged((cursor, limit) => api.queryAttempts({ ...filters, cursor, limit }), JSON.stringify(filters), { live: `${db.attempts.length}:${reviewed}`, id: (a) => a.id, pageSize: 50 });
 
   const days = useMemo(() => [...new Set(db.attempts.map((a) => dayKey(a.ts)))].sort().reverse(), [db]);
   const download = async () => {
@@ -41,7 +89,7 @@ export const JournalPage = () => {
 
   return (
     <div>
-      <PageHeader title="Журнал проходов" sub="Все попытки прохода с решением и причиной. Фильтры сохраняются в адресе страницы" actions={<Button variant="secondary" onClick={download}><Download />Скачать CSV</Button>} />
+      <PageHeader title="Журнал проходов" sub="Все попытки прохода с решением и причиной. Фильтры сохраняются в адресе страницы" actions={<>{(pending > 0 || reviewOnly) && <Button variant={reviewOnly ? "primary" : "secondary"} onClick={() => set("review", reviewOnly ? "" : "pending")}><ShieldCheck />{reviewOnly ? "Показать все" : `На проверке · ${pending}`}</Button>}<Button variant="secondary" onClick={download}><Download />Скачать CSV</Button></>} />
       <div className="mb-3 grid gap-2 sm:mb-4 sm:grid-cols-2 lg:grid-cols-6">
         <div className="min-w-0 sm:col-span-2 lg:col-span-2"><Input icon={<Search />} value={q} onChange={(e) => set("q", e.target.value)} placeholder="Сотрудник или причина" aria-label="Поиск" className="bg-card" /></div>
           <Select aria-label="День" value={day} onChange={(v) => set("day", v)} className="bg-card"
@@ -65,7 +113,7 @@ export const JournalPage = () => {
                     <td className="px-4 py-3 font-medium">{name(a.workerId)}</td>
                     <td className="px-4 py-3 text-muted-foreground">{cp(a.checkpointId)}</td>
                     <td className="px-4 py-3"><div>{a.direction === "IN" ? "вход" : "выход"}</div><div className="whitespace-nowrap text-xs text-muted-foreground">{src(a.checkpointId)}</div></td>
-                    <td className="px-4 py-3"><DecisionBadge decision={a.decision} code={a.code} /></td>
+                    <td className="px-4 py-3"><div className="flex flex-col items-start gap-1.5"><DecisionBadge decision={a.decision} code={a.code} />{a.decision === "MANUAL" && <ReviewMark a={a} onOpen={setOpen} />}</div></td>
                     <td className="px-4 py-3">{a.decision === "ALLOW" ? <span className="text-subtle-foreground">—</span> : <span className="flex flex-wrap items-center gap-2">{REASONS[a.code].message}{SYSTEM_CODES.has(a.code) && <Status tone="info">системный</Status>}</span>}{a.note && <span className="text-muted-foreground"> · {a.note}</span>}</td>
                     <td className="px-4 py-3 pr-6 tabular-nums text-muted-foreground">{a.score ? `${Math.round(a.score * 100)}%` : ""}</td>
                   </motion.tr>
@@ -73,10 +121,11 @@ export const JournalPage = () => {
               </motion.tbody>
             </table>
           </div>
-          <div className="divide-y divide-border px-4 sm:px-6 lg:hidden">{page.items.map((a) => <AttemptRow key={a.id} a={a} showDate={day === "all"} dirSource={src(a.checkpointId)} who={<div className="truncate text-sm font-medium">{name(a.workerId)}</div>} />)}</div>
+          <div className="divide-y divide-border px-4 sm:px-6 lg:hidden">{page.items.map((a) => <AttemptRow key={a.id} a={a} showDate={day === "all"} dirSource={src(a.checkpointId)} who={<div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"><span className="truncate text-sm font-medium">{name(a.workerId)}</span>{a.decision === "MANUAL" && <ReviewMark a={a} onOpen={setOpen} />}</div>} />)}</div>
           <LoadMore shown={page.items.length} total={page.total} hasMore={page.hasMore} loading={page.loading} error={page.error} onMore={page.more} />
         </>)}
       </Card></motion.div>
+      {open && <ReviewDialog a={open} who={name(open.workerId)} where={cp(open.checkpointId)} onClose={() => setOpen(null)} />}
     </div>
   );
 };

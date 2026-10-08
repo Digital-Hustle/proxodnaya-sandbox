@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { motion } from "motion/react";
 import { Link2, MonitorSmartphone, Pencil, Unlink, BookOpen, ScanLine } from "lucide-react";
-import { api, useDb, KIOSK_ONLINE_MS, type Kiosk, type TerminalMode } from "@/shared/api";
+import { api, useDb, KIOSK_ONLINE_MS, terminalModeOf, type Kiosk, type TerminalMode, type OfflinePolicy } from "@/shared/api";
 import { Button, Card, CardHeader, CardTitle, Dialog, EmptyState, Field, Input, PageHeader, Select, Status, toast } from "@/shared/ui";
 import { useNow } from "@/shared/hooks";
 import { agoRu } from "@/shared/lib";
@@ -23,20 +23,50 @@ const useModeOptions = () => {
   ];
 };
 
+type OffOpt = OfflinePolicy | "DEFAULT";
+const OFF_LABEL: Record<OfflinePolicy, string> = { GUARD: "Пропуск охранником", CLOSED: "Проход закрыт" };
+const useOfflineOptions = () => {
+  const { settings } = useDb();
+  const def = settings.offlinePolicy ?? "GUARD";
+  return [
+    { value: "DEFAULT" as OffOpt, label: "Как в настройках", hint: OFF_LABEL[def] },
+    { value: "GUARD" as OffOpt, label: OFF_LABEL.GUARD, hint: "рекомендуется" },
+    { value: "CLOSED" as OffOpt, label: OFF_LABEL.CLOSED },
+  ];
+};
+const usePerKiosk = () => useDb().settings.terminalScope === "PER_KIOSK";
+
+/** Общая логика: на терминале её не выбрать — показываем, что действует, и где поменять. */
+const GlobalNote = () => {
+  const { settings } = useDb();
+  return (
+    <div className="rounded-lg bg-surface p-4 text-sm">
+      <div className="font-medium">{MODE_LABEL[settings.terminalMode ?? "QR_FACE"]} · без связи: {OFF_LABEL[settings.offlinePolicy ?? "GUARD"].toLowerCase()}</div>
+      <div className="text-pretty text-muted-foreground">Логика одна для всех терминалов. Чтобы задавать её каждому киоску отдельно, включите это в <Link to={routes.adminSettings} className="font-medium text-foreground underline-offset-4 hover:underline">настройках</Link></div>
+    </div>
+  );
+};
+
 const EditDialog = ({ kiosk, onClose }: { kiosk: Kiosk; onClose: () => void }) => {
   const db = useDb();
   const modes = useModeOptions();
   const [name, setName] = useState(kiosk.name ?? "");
   const [cp, setCp] = useState(kiosk.checkpointId ?? db.checkpoints[0].id);
   const [mode, setMode] = useState<ModeOpt>(kiosk.mode ?? "DEFAULT");
-  const save = async () => { await api.updateKiosk(kiosk.id, { name: name.trim() || "Терминал", checkpointId: cp, mode: mode === "DEFAULT" ? undefined : mode }); toast.success("Терминал обновлён"); onClose(); };
+  const offs = useOfflineOptions();
+  const per = usePerKiosk();
+  const [off, setOff] = useState<OffOpt>(kiosk.offlinePolicy ?? "DEFAULT");
+  const save = async () => { await api.updateKiosk(kiosk.id, { name: name.trim() || "Терминал", checkpointId: cp, ...(per ? { mode: mode === "DEFAULT" ? undefined : mode, offlinePolicy: off === "DEFAULT" ? undefined : off } : {}) }); toast.success("Терминал обновлён"); onClose(); };
   return (
     <Dialog open onClose={onClose} title="Настройка терминала" description="Изменения применяются на киоске сразу"
       footer={<><Button variant="quiet" onClick={onClose}>Отмена</Button><Button onClick={save}>Сохранить</Button></>}>
       <div className="flex flex-col gap-5">
         <Field label="Название"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
         <Field label="Проходная"><Select value={cp} onChange={setCp} options={db.checkpoints.map((c) => ({ value: c.id, label: c.name }))} /></Field>
-        <Field label="Логика работы"><Select value={mode} onChange={setMode} options={modes} /></Field>
+        {per ? <>
+          <Field label="Логика работы"><Select value={mode} onChange={setMode} options={modes} /></Field>
+          <Field label="Без связи с сервером"><Select value={off} onChange={setOff} options={offs} /></Field>
+        </> : <GlobalNote />}
       </div>
     </Dialog>
   );
@@ -52,6 +82,9 @@ export const TerminalsPage = () => {
   const [name, setName] = useState("");
   const [cp, setCp] = useState(db.checkpoints[0]?.id ?? "");
   const [mode, setMode] = useState<ModeOpt>("DEFAULT");
+  const offs = useOfflineOptions();
+  const per = usePerKiosk();
+  const [off, setOff] = useState<OffOpt>("DEFAULT");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [edit, setEdit] = useState<Kiosk | null>(null);
@@ -62,7 +95,7 @@ export const TerminalsPage = () => {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setErr(null); setBusy(true);
     try {
-      await api.pairKiosk(code, { name, checkpointId: cp, mode: mode === "DEFAULT" ? undefined : mode });
+      await api.pairKiosk(code, { name, checkpointId: cp, ...(per ? { mode: mode === "DEFAULT" ? undefined : mode, offlinePolicy: off === "DEFAULT" ? undefined : off } : {}) });
       toast.success("Терминал подключён — можно проходить");
       setCode(""); setName("");
       if (sp.has("code")) { sp.delete("code"); setSp(sp, { replace: true }); }
@@ -87,7 +120,10 @@ export const TerminalsPage = () => {
               <Field label="Код с экрана киоска" error={err}><Input value={code} maxLength={6} onChange={(e) => { setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "")); setErr(null); }} placeholder="Например, K7Q2MX" className="font-mono tracking-widest" autoComplete="off" /></Field>
               <Field label="Название"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, Турникет 1" /></Field>
               <Field label="Проходная"><Select value={cp} onChange={setCp} options={db.checkpoints.map((c) => ({ value: c.id, label: c.name }))} /></Field>
-              <Field label="Логика работы" hint="По умолчанию — как в настройках"><Select value={mode} onChange={setMode} options={modes} /></Field>
+              {per ? <>
+                <Field label="Логика работы" hint="По умолчанию — как в настройках"><Select value={mode} onChange={setMode} options={modes} /></Field>
+                <Field label="Без связи с сервером" hint="По умолчанию — как в настройках"><Select value={off} onChange={setOff} options={offs} /></Field>
+              </> : <div className="sm:col-span-2"><GlobalNote /></div>}
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <Button type="submit" disabled={code.length !== 6 || !cp || busy}><Link2 />Привязать</Button>
@@ -107,7 +143,7 @@ export const TerminalsPage = () => {
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-surface text-muted-foreground"><MonitorSmartphone className="size-5" /></span>
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-medium">{k.name}</div>
-                      <div className="truncate text-sm text-muted-foreground">{db.checkpoints.find((c) => c.id === k.checkpointId)?.name ?? "—"} · {k.mode ? MODE_LABEL[k.mode] : `${MODE_LABEL[db.settings.terminalMode ?? "QR_FACE"]} (по умолчанию)`}</div>
+                      <div className="truncate text-sm text-muted-foreground">{db.checkpoints.find((c) => c.id === k.checkpointId)?.name ?? "—"} · {MODE_LABEL[terminalModeOf(db, k)]}{per && (k.mode || k.offlinePolicy) ? " · своя логика" : " · общая логика"}</div>
                     </div>
                     {online ? <Status tone="success" dot>на связи</Status> : <Status tone="neutral" dot>{`был ${agoRu(k.lastSeen)}`}</Status>}
                     <div className="flex gap-1">

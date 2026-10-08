@@ -62,12 +62,12 @@ export const DemoPanel = ({ checkpointId, open, onClose, onScan, onManual }: Pro
             <SwitchRow icon={<ImageOff />} title="Фотография вместо лица" text="Проверка живого присутствия не пройдёт" checked={photoAttack} onChange={setPhotoAttack} />
           </div>
         </Section>
-        <Section title="Ручной пропуск" text="Направление определяется автоматически, причина сохраняется в журнале">
+        <Section title="Ручной пропуск" text="Действует сразу. Запись ждёт подтверждения службой безопасности в журнале">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Сотрудник"><Select value={manualWorker} onChange={setManualWorker} options={db.workers.map((w) => ({ value: w.id, label: w.fullName }))} /></Field>
             <Field label="Причина"><Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Например: разряжен телефон" /></Field>
           </div>
-          <Button variant="outline" disabled={!note.trim()} className="self-start" onClick={() => { onClose(); onManual(manualWorker, note.trim()); setNote(""); toast.info("Ручной пропуск записан в журнал"); }}>Пропустить</Button>
+          <Button variant="outline" disabled={!note.trim()} className="self-start" onClick={() => { onClose(); onManual(manualWorker, note.trim()); setNote(""); toast.info("Ручной пропуск записан — ждёт подтверждения в журнале"); }}>Пропустить</Button>
         </Section>
       </div>
     </Dialog>

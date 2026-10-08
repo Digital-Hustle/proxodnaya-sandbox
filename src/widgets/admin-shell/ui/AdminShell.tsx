@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 import { LayoutGrid, Users, ScrollText, CalendarClock, BarChart3, Sparkles, Settings, MoreHorizontal, ScanLine, Home, ChevronRight, MonitorSmartphone, UserCog, Lock } from "lucide-react";
 import { useSession, can, roleLabel, ROLES, type Perm } from "@/entities/session";
 import { AssistantFab } from "@/features/ask-assistant";
-import { EmptyState, Logo, ThemePicker, PreferencesButton, OfflineBanner, Dialog, Button, Aurora, HeaderBar, NavTrack, TrackIndicator, useTrackIndicator } from "@/shared/ui";
+import { EmptyState, Logo, ThemePicker, PreferencesButton, OfflineBanner, Dialog, Button, HeaderBar, NavTrack, TrackIndicator, useTrackIndicator } from "@/shared/ui";
 import { routes } from "@/shared/const/router";
 import { cn } from "@/shared/lib";
 import { pageIn, press, duration } from "@/shared/config/motion";
@@ -38,7 +38,6 @@ export const AdminShell = () => {
 
   return (
     <div className="relative isolate min-h-dvh text-foreground">
-      <Aurora fixed intensity={0.35} />
       {/* Шапка-пилюля, как на sberbank.ru */}
       <HeaderBar>
         <Link to={routes.home} className="shrink-0 rounded-md px-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"><Logo sub="администратор" /></Link>

@@ -1,6 +1,6 @@
 // Мок-бэкенд в браузере. Решение о проходе принимается ЗДЕСЬ, а не в компонентах (как Д2 в продукте:
 // UI только показывает то, что вернул «сервер»).
-import type { Attempt, Challenge, Checkpoint, Db, Kiosk, TerminalMode, DecisionResult, Device, Direction, FrameStat, ReasonCode, Shift, Worker } from "../types";
+import type { Attempt, Challenge, Checkpoint, Db, Kiosk, TerminalMode, OfflinePolicy, ManualReview, DecisionResult, Device, Direction, FrameStat, ReasonCode, Shift, Worker } from "../types";
 import { getDb, mutate, resetDb } from "./store";
 import { REASONS } from "./reasons";
 import { presenceNow, shiftFor, buildIntervals } from "./derived";
@@ -201,7 +201,10 @@ export const kioskIdentify = async (checkpointId: string, frames: FrameStat[], c
 
 // ——— Терминалы (ADR-038) ———
 export const KIOSK_ONLINE_MS = 45000;
-export const terminalModeOf = (db: Db, kiosk?: Kiosk): TerminalMode => kiosk?.mode ?? db.settings.terminalMode ?? "QR_FACE";
+const perKiosk = (db: Db) => db.settings.terminalScope === "PER_KIOSK";
+/** Логика терминала: общая из настроек или своя у киоска (если включена настройка по терминалам). */
+export const terminalModeOf = (db: Db, kiosk?: Kiosk): TerminalMode => (perKiosk(db) ? kiosk?.mode : undefined) ?? db.settings.terminalMode ?? "QR_FACE";
+export const offlinePolicyOf = (db: Db, kiosk?: Kiosk): OfflinePolicy => (perKiosk(db) ? kiosk?.offlinePolicy : undefined) ?? db.settings.offlinePolicy ?? "GUARD";
 
 /** Киоск сообщает о себе (при старте и каждые 30 с). Неизвестный — получает код сопряжения. */
 export const kioskHello = (id: string) => mutate((d) => {
@@ -211,16 +214,16 @@ export const kioskHello = (id: string) => mutate((d) => {
   else d.kiosks.push({ id, pairCode: inviteCode(), createdAt: Date.now(), lastSeen: Date.now() });
 });
 
-export const pairKiosk = async (code: string, p: { name: string; checkpointId: string; mode?: TerminalMode }) => {
+export const pairKiosk = async (code: string, p: { name: string; checkpointId: string; mode?: TerminalMode; offlinePolicy?: OfflinePolicy }) => {
   await latency(200, 450);
   const c = code.trim().toUpperCase();
   const k = (getDb().kiosks ?? []).find((x) => x.pairCode === c && !x.pairedAt);
   if (!k) throw new Error("Код не найден. Проверьте 6 символов на экране терминала.");
-  mutate((d) => { const x = d.kiosks?.find((v) => v.id === k.id); if (x) Object.assign(x, { name: p.name.trim() || "Терминал", checkpointId: p.checkpointId, mode: p.mode, pairedAt: Date.now() }); });
+  mutate((d) => { const x = d.kiosks?.find((v) => v.id === k.id); if (x) Object.assign(x, { name: p.name.trim() || "Терминал", checkpointId: p.checkpointId, mode: p.mode, offlinePolicy: p.offlinePolicy, pairedAt: Date.now() }); });
   return k.id;
 };
 
-export const updateKiosk = async (id: string, patch: Partial<Pick<Kiosk, "name" | "checkpointId" | "mode">>) => {
+export const updateKiosk = async (id: string, patch: Partial<Pick<Kiosk, "name" | "checkpointId" | "mode" | "offlinePolicy">>) => {
   await latency(60, 160);
   mutate((d) => { const x = d.kiosks?.find((v) => v.id === id); if (x) Object.assign(x, patch); });
 };
@@ -231,10 +234,22 @@ export const unpairKiosk = async (id: string) => {
   mutate((d) => { d.kiosks = (d.kiosks ?? []).filter((v) => v.id !== id); d.kiosks.push({ id, pairCode: inviteCode(), createdAt: Date.now(), lastSeen: Date.now() }); });
 };
 
-export const kioskManual = async (workerId: string, checkpointId: string, note: string) => {
+/** Ручной пропуск (ADR-040): действует сразу, но запись ждёт подтверждения вторым человеком. */
+export const kioskManual = async (workerId: string, checkpointId: string, note: string, guard = "Охранник поста") => {
   await latency();
   const { direction } = resolveDirection(getDb(), workerId, checkpointId);
-  return record({ workerId, direction, checkpointId, decision: "MANUAL", code: "MANUAL_GUARD", source: "MANUAL", note });
+  return record({ workerId, direction, checkpointId, decision: "MANUAL", code: "MANUAL_GUARD", source: "MANUAL", note, guard });
+};
+
+/** Проверка ручного пропуска: подтвердить или оспорить (с комментарием). Один раз, история не переписывается. */
+export const reviewManual = async (id: string, status: ManualReview["status"], by: string, comment?: string) => {
+  await latency(120, 260);
+  const a = getDb().attempts.find((x) => x.id === id);
+  if (!a || a.decision !== "MANUAL") throw new Error("Запись не найдена или это не ручной пропуск");
+  if (a.review) throw new Error("Запись уже проверена");
+  const c = comment?.trim();
+  if (status === "DISPUTED" && !c) throw new Error("Напишите, что не так");
+  mutate((d) => { const x = d.attempts.find((v) => v.id === id); if (x) x.review = { status, by, at: Date.now(), ...(c ? { comment: c } : {}) }; });
 };
 
 // ——— Телефон рабочего ———
@@ -390,13 +405,13 @@ export const queryWorkers = async (p: WorkerQuery): Promise<Page<WorkerRow>> => 
   return pageByOffset(all, p.cursor, p.limit);
 };
 
-export type AttemptQuery = { day?: string; decision?: string; direction?: string; checkpointId?: string; workerId?: string; q?: string; cursor?: string | null; limit?: number };
+export type AttemptQuery = { review?: "PENDING"; day?: string; decision?: string; direction?: string; checkpointId?: string; workerId?: string; q?: string; cursor?: string | null; limit?: number };
 const filterAttempts = (db: Db, p: AttemptQuery) => {
   const names = new Map(db.workers.map((w) => [w.id, w.fullName]));
   const q = norm(p.q);
   return db.attempts
     .filter((a) => (!p.day || p.day === "all" || todayKey(new Date(a.ts)) === p.day) && (!p.decision || a.decision === p.decision) && (!p.direction || a.direction === p.direction)
-      && (!p.checkpointId || a.checkpointId === p.checkpointId) && (!p.workerId || a.workerId === p.workerId))
+      && (!p.checkpointId || a.checkpointId === p.checkpointId) && (!p.workerId || a.workerId === p.workerId) && (!p.review || (a.decision === "MANUAL" && !a.review)))
     .filter((a) => !q || norm(`${(a.workerId && names.get(a.workerId)) ?? ""} ${REASONS[a.code].message} ${a.code}`).includes(q))
     .sort((a, b) => b.ts - a.ts || (a.id < b.id ? 1 : -1));
 };
