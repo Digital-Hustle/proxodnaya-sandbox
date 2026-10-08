@@ -11,14 +11,17 @@ import { Badge, Button, Card, CardHeader, CardTitle, Dialog, Field, Input, Switc
 import { fadeUp, stagger } from "@/shared/config/motion";
 
 const ADR_URL = "https://github.com/Digital-Hustle/proxodnaya-sandbox/blob/main/docs/ADR-038-terminal-modes.md";
+const ADR42_URL = "https://github.com/Digital-Hustle/proxodnaya-sandbox/blob/main/docs/ADR-042-qr-only-offline.md";
 
 const MODES: { v: TerminalMode; title: string; badge?: string; text: string }[] = [
   { v: "QR_FACE", title: "QR + лицо", badge: "Рекомендуется", text: "Сотрудник показывает QR, терминал сверяет лицо с фото владельца пропуска и просит простое действие для проверки живости. Два независимых фактора — так требует положение хакатона." },
   { v: "FACE_FIRST", title: "Сначала лицо", text: "Достаточно посмотреть в камеру: сервер ищет человека по базе со строгим порогом и проверкой живости. Не узнал — терминал просит QR и сверяет лицо уже по нему. Быстрее в час пик, но один фактор вместо двух." },
+  { v: "QR_ONLY", title: "Только QR", text: "Быстрее всего: подпись, 30-секундное окно, одноразовость кода и правила допуска — без сверки лица. Подходит для внутренних турникетов и пиковых смен." },
 ];
 const OFFLINE: { v: OfflinePolicy; title: string; badge?: string; text: string }[] = [
   { v: "GUARD", title: "Пропуск охранником", badge: "Рекомендуется", text: "Терминал не пропускает сам. Охранник проверяет личность, вводит PIN и причину; запись помечается как ручная и уходит в журнал, когда связь вернётся." },
   { v: "CLOSED", title: "Проход закрыт", text: "До восстановления связи терминал никого не пропускает. Строже всего, но у турникета соберётся очередь." },
+  { v: "LOCAL", title: "Автономная проверка QR", text: "Терминал сам проверяет подпись QR по снимку допусков: закрытый ключ — в телефоне, открытые ключи и списки — на терминале. Пропускает в пределах срока, проходы уходят на сервер, когда связь вернётся." },
 ];
 
 const SCOPES: { v: TerminalScope; title: string; badge?: string; text: string }[] = [
@@ -43,6 +46,7 @@ export const SettingsPage = () => {
   const role = useSession((x) => x.role);
   const set = (patch: Partial<Settings>) => api.updateSettings(patch);
   const perKiosk = (s.terminalScope ?? "GLOBAL") === "PER_KIOSK";
+  const local = (s.offlinePolicy ?? "GUARD") === "LOCAL";
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader title="Настройки" sub="Логика терминалов, правила прохода, роли и демо-режим" />
@@ -59,23 +63,33 @@ export const SettingsPage = () => {
             </div>
             <div className="flex flex-col gap-3">
               <div><div className="font-medium">{perKiosk ? "Как сотрудник проходит · по умолчанию" : "Как сотрудник проходит"}</div><p className="text-sm text-muted-foreground">{perKiosk ? "Для новых терминалов и тех, кому не задана своя логика" : "Действует на всех терминалах объекта"}</p></div>
-              <div role="radiogroup" aria-label="Логика терминала" className="grid gap-3 sm:grid-cols-2">
+              <div role="radiogroup" aria-label="Логика терминала" className="grid gap-3 sm:grid-cols-3">
                 {MODES.map((x) => <Choice key={x.v} active={(s.terminalMode ?? "QR_FACE") === x.v} onClick={() => set({ terminalMode: x.v })} title={x.title} text={x.text} badge={x.badge} />)}
               </div>
               {s.terminalMode === "FACE_FIRST" && <p className="text-sm text-muted-foreground">Порог узнавания по базе: {(Math.min(0.95, s.faceThreshold + FACE_FIRST_MARGIN)).toFixed(2)} — строже, чем для сверки по QR ({s.faceThreshold.toFixed(2)}), чтобы не перепутать похожих людей.</p>}
             </div>
             <div className="flex flex-col gap-3">
-              <div><div className="font-medium">Если нет связи с сервером</div><p className="text-sm text-muted-foreground">В обоих вариантах терминал не принимает решение сам.</p></div>
-              <div role="radiogroup" aria-label="Поведение без связи" className="grid gap-3 sm:grid-cols-2">
+              <div><div className="font-medium">Если нет связи с сервером</div><p className="text-sm text-muted-foreground">{local ? "Терминал проверяет QR сам — по снимку допусков, скачанному при последней связи." : "Решение принимает охранник, или проход закрыт до восстановления связи."}</p></div>
+              <div role="radiogroup" aria-label="Поведение без связи" className="grid gap-3 sm:grid-cols-3">
                 {OFFLINE.map((x) => <Choice key={x.v} active={(s.offlinePolicy ?? "GUARD") === x.v} onClick={() => set({ offlinePolicy: x.v })} title={x.title} text={x.text} badge={x.badge} />)}
               </div>
+              {(local || perKiosk) && (
+                <div className="grid gap-5 rounded-lg border border-border p-4 sm:grid-cols-2">
+                  <Field label="Срок автономной работы, ч" hint="Сколько терминал пропускает сам после последней связи"><Input type="number" inputMode="numeric" step="1" min="1" max="72" value={s.offlineMaxHours ?? 12} onChange={(e) => set({ offlineMaxHours: Math.min(72, Math.max(1, Number(e.target.value) || 1)) })} /></Field>
+                  <Field label="Когда срок истёк" hint="Дальше терминал сам не пропускает"><Select value={s.offlineAfterExpiry ?? "GUARD"} onChange={(v) => set({ offlineAfterExpiry: v as "GUARD" | "CLOSED" })} aria-label="Когда срок истёк" options={[{ value: "GUARD", label: "Пропуск охранником" }, { value: "CLOSED", label: "Проход закрыт" }]} /></Field>
+                  <SwitchRow title="Проверять смену без связи" text="По графику из снимка, если включено «Пускать только по смене»" checked={s.offlineCheckShift ?? true} onChange={(v) => set({ offlineCheckShift: v })} />
+                  <SwitchRow title="Пускать с нового телефона" text="Ключ, которого нет в снимке, привяжется при первом проходе. Для демо, в продукте выключено" checked={(s.offlineUnknownDevice ?? "DENY") === "BIND"} onChange={(v) => set({ offlineUnknownDevice: v ? "BIND" : "DENY" })} />
+                  <p className="text-pretty text-sm text-muted-foreground sm:col-span-2">Терминал обновляет снимок раз в минуту, пока есть связь. Проверить можно на киоске: сервисная панель → «Имитация обрыва связи».</p>
+                </div>
+              )}
             </div>
             <div className="flex gap-3 rounded-lg bg-surface p-4 text-sm">
               <ShieldAlert className="mt-0.5 size-5 shrink-0 text-warning" />
               <div className="flex flex-col gap-1.5">
-                <span className="font-medium">Почему без связи нельзя пропускать по одному QR</span>
-                <span className="text-pretty text-muted-foreground">Тогда решение принимал бы сам киоск, без сверки лица и без проверки одноразовости кода: скриншот чужого пропуска открыл бы турникет. Положение хакатона прямо называет это критериями снятия.</span>
+                <span className="font-medium">Чем рискует проход по одному QR</span>
+                <span className="text-pretty text-muted-foreground">Без сверки лица терминал проверяет подпись, 30-секундное окно и одноразовость кода: скриншот чужого пропуска, переданный за эти секунды, откроет турникет. С связью одноразовость гарантирует сервер, без связи — только этот терминал. Поэтому каждый автономный проход помечается «без связи» и при синхронизации сверяется с сервером: отвязанные телефоны и коды, погашенные на другом терминале, отмечаются как конфликт.</span>
                 <a href={ADR_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 font-medium underline-offset-4 hover:underline"><BookOpen className="size-4" />Подробно — в ADR-038</a>
+                <a href={ADR42_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 font-medium underline-offset-4 hover:underline"><BookOpen className="size-4" />Автономный режим — ADR-042</a>
               </div>
             </div>
           </div>

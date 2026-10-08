@@ -5,9 +5,11 @@ import { api, useDb, terminalModeOf, offlinePolicyOf, type Kiosk } from "@/share
 import { Button, Dialog, Field, Input, SwitchRow, Status, toast } from "@/shared/ui";
 import { routes } from "@/shared/const/router";
 import { agoRu } from "@/shared/lib";
+import { useOfflinePass } from "@/features/offline-pass";
 
 export const SERVICE_PIN = "2580";
-export const MODE_LABEL = { QR_FACE: "QR + лицо", FACE_FIRST: "Сначала лицо, QR — запасной" } as const;
+export const MODE_LABEL = { QR_FACE: "QR + лицо", FACE_FIRST: "Сначала лицо, QR — запасной", QR_ONLY: "Только QR" } as const;
+export const OFFLINE_LABEL = { GUARD: "Пропуск охранником", CLOSED: "Проход закрыт", LOCAL: "Автономная проверка QR" } as const;
 
 const Row = ({ k, v }: { k: string; v: React.ReactNode }) => (
   <div className="flex items-center justify-between gap-3 py-2.5 text-sm"><span className="text-muted-foreground">{k}</span><span className="min-w-0 truncate text-right font-medium">{v}</span></div>
@@ -22,6 +24,7 @@ export const ServicePanel = ({ open, onClose, kioskId, kiosk, simOffline, setSim
   const [ok, setOk] = useState(false);
   const close = () => { onClose(); setPin(""); };
   const cp = db.checkpoints.find((c) => c.id === kiosk?.checkpointId);
+  const off = useOfflinePass();
   return (
     <Dialog open={open} onClose={close} title="Сервисная панель" description={ok ? "Для инженера терминалов" : "Введите сервисный код"}>
       {!ok ? (
@@ -37,7 +40,9 @@ export const ServicePanel = ({ open, onClose, kioskId, kiosk, simOffline, setSim
             {kiosk?.pairedAt && <Row k="Название" v={kiosk.name} />}
             {kiosk?.pairedAt && <Row k="Проходная" v={cp?.name ?? "—"} />}
             <Row k="Логика работы" v={MODE_LABEL[terminalModeOf(db, kiosk)]} />
-            <Row k="Без связи" v={offlinePolicyOf(db, kiosk) === "GUARD" ? "пропуск охранником" : "проход закрыт"} />
+            <Row k="Без связи" v={OFFLINE_LABEL[offlinePolicyOf(db, kiosk)]} />
+            <Row k="Снимок допусков" v={off.snapshot ? `${agoRu(off.snapshot.at)} · ${off.snapshot.workers.length} чел.` : "ещё не скачан"} />
+            <Row k="Ждут отправки" v={off.queue.length ? `${off.queue.length} прох.` : "нет"} />
             {kiosk?.pairedAt && <Row k="Привязан" v={agoRu(kiosk.pairedAt)} />}
           </div>
           <p className="text-xs text-muted-foreground">Проходная и логика работы меняются только в админке: на самом терминале их нельзя подменить.</p>
