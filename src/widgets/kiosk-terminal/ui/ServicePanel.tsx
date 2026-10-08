@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { FlaskConical, Unlink, ExternalLink, WifiOff } from "lucide-react";
+import { FlaskConical, Unlink, ExternalLink, WifiOff, RotateCcw } from "lucide-react";
 import { api, useDb, terminalModeOf, offlinePolicyOf, type Kiosk } from "@/shared/api";
-import { Button, Dialog, Field, Input, SwitchRow, Status, toast } from "@/shared/ui";
+import { Button, Dialog, Field, Input, SwitchRow, Status, toast, InstallButton } from "@/shared/ui";
 import { routes } from "@/shared/const/router";
 import { agoRu } from "@/shared/lib";
 import { useOfflinePass } from "@/features/offline-pass";
@@ -43,10 +43,14 @@ export const ServicePanel = ({ open, onClose, kioskId, kiosk, simOffline, setSim
             <Row k="Без связи" v={OFFLINE_LABEL[offlinePolicyOf(db, kiosk)]} />
             <Row k="Снимок допусков" v={off.snapshot ? `${agoRu(off.snapshot.at)} · ${off.snapshot.workers.length} чел.` : "ещё не скачан"} />
             <Row k="Ждут отправки" v={off.queue.length ? `${off.queue.length} прох.` : "нет"} />
+            <Row k="Журнал терминала" v={off.head.seq ? `${off.head.seq} зап. · подписан` : "пуст"} />
+            {kiosk?.syncError && <Row k="Отправка" v={<Status tone="danger" dot>{kiosk.syncError.message}</Status>} />}
             {kiosk?.pairedAt && <Row k="Привязан" v={agoRu(kiosk.pairedAt)} />}
           </div>
           <p className="text-xs text-muted-foreground">Проходная и логика работы меняются только в админке: на самом терминале их нельзя подменить.</p>
           <div className="rounded-md border border-border px-3"><SwitchRow icon={<WifiOff />} title="Имитировать обрыв связи" text="Проверка поведения без сети" checked={simOffline} onChange={setSimOffline} /></div>
+          <InstallButton label="Установить терминал как приложение" className="w-full" />
+          <Button variant="secondary" disabled={!off.snapshot} onClick={() => { off.reset(); toast.info("Снимок допусков сброшен. Неотправленные проходы сохранены"); }}><RotateCcw />Сбросить снимок допусков</Button>
           <div className="grid gap-2 sm:grid-cols-3">
             <Button variant="secondary" disabled={!kiosk?.pairedAt} onClick={() => { close(); onDemo(); }}><FlaskConical />Демо-пульт</Button>
             <Link to={routes.adminTerminals} target="_blank" tabIndex={-1} className="contents"><Button variant="secondary"><ExternalLink />В админке</Button></Link>

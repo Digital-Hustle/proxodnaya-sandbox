@@ -3,7 +3,7 @@ import { NavLink, Outlet, Navigate, useLocation, Link } from "react-router";
 import { motion } from "motion/react";
 import { QrCode, History, CalendarDays } from "lucide-react";
 import { loadKey, cn, type StoredKey } from "@/shared/lib";
-import { Logo, OfflineBanner, Skeleton, PreferencesButton, HeaderBar, TrackIndicator, useTrackIndicator } from "@/shared/ui";
+import { Logo, OfflineBanner, Skeleton, PreferencesButton, InstallButton, HeaderBar, TrackIndicator, useTrackIndicator } from "@/shared/ui";
 import { routes } from "@/shared/const/router";
 import { pageIn } from "@/shared/config/motion";
 
@@ -27,7 +27,7 @@ export const WorkerShell = () => {
       <div className="mx-auto flex min-h-dvh max-w-md flex-col">
         <HeaderBar className="px-3 sm:px-3" inner="justify-between">
           <Link to={routes.home} className="min-w-0 px-1.5"><Logo sub="пропуск" /></Link>
-          <PreferencesButton />
+          <div className="flex items-center gap-2"><InstallButton /><PreferencesButton /></div>
         </HeaderBar>
         <OfflineBanner text="Нет сети. QR-пропуск работает офлайн" />
         {key === undefined ? (

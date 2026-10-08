@@ -26,7 +26,8 @@ export const verifyLocal = async (raw: string, now = Date.now()): Promise<Decisi
   const id = randomId("off");
   const ev = (code: ReasonCode, direction: Direction, workerId?: string, extra?: Partial<OfflineEvent>): OfflineEvent =>
     ({ id, ts: now, workerId, checkpointId: s?.checkpoint.id ?? "cp_main", direction, decision: REASONS[code].decision, code, ...extra });
-  const done = (e: OfflineEvent, w?: SnapWorker) => { push(e); return toResult(e, w); };
+  let proof: string | undefined;
+  const done = async (e: OfflineEvent, w?: SnapWorker) => toResult(await push(proof ? { ...e, proof } : e), w);
 
   if (!s) return done(ev("OFFLINE_EXPIRED", "IN"));
   const cp = s.checkpoint;
@@ -35,6 +36,7 @@ export const verifyLocal = async (raw: string, now = Date.now()): Promise<Decisi
 
   const qr = parsePassQr(raw);
   if (!qr) return done(ev("QR_INVALID", fixed ?? "IN"));
+  proof = raw.trim();
   const w = s.workers.find((x) => x.id === qr.workerId);
   if (!w) return done(ev("DEVICE_UNKNOWN", fixed ?? "IN"));
 

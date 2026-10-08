@@ -1,14 +1,17 @@
 {
   "lang": "ru",
   "dir": "ltr",
-  "id": "./?app=worker",
-  "name": "Проходная · пропуск",
-  "short_name": "Пропуск",
-  "description": "QR-пропуск сотрудника. Работает без интернета.",
-  "start_url": "./?app=worker#/worker",
-  "background_color": "#F9F9F9",
-  "theme_color": "#21A038",
-  "orientation": "portrait",
+  "id": "./?app=kiosk",
+  "name": "Проходная · терминал",
+  "short_name": "Терминал",
+  "description": "Терминал на проходной: проверка QR, в том числе без связи.",
+  "start_url": "./?app=kiosk#/kiosk",
+  "background_color": "#121417",
+  "theme_color": "#121417",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
   "scope": "./",
   "display": "standalone",
   "icons": [

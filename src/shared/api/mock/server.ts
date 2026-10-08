@@ -1,14 +1,15 @@
 // Мок-бэкенд в браузере. Решение о проходе принимается ЗДЕСЬ, а не в компонентах (как Д2 в продукте:
 // UI только показывает то, что вернул «сервер»).
-import type { OfflineEvent, OfflineSnapshot, Attempt, Challenge, Checkpoint, Db, Kiosk, TerminalMode, OfflinePolicy, ManualReview, AdminUser, AccessEvent, Role, DecisionResult, Device, Direction, FrameStat, ReasonCode, Shift, Worker } from "../types";
+import type { OfflineBatch, OfflineSyncResult, OfflineSnapshot, Attempt, Challenge, Checkpoint, Db, Kiosk, TerminalMode, OfflinePolicy, ManualReview, AdminUser, AccessEvent, Role, DecisionResult, Device, Direction, FrameStat, ReasonCode, Shift, Worker } from "../types";
 import { getDb, mutate, resetDb } from "./store";
 import { REASONS } from "./reasons";
 import { presenceNow, shiftFor, buildIntervals } from "./derived";
-import { currentWindow, parsePassQr, signedMessage, buildPassQr } from "../../lib/passQr";
+import { currentWindow, parsePassQr, signedMessage, buildPassQr, QR_WINDOW_SEC } from "../../lib/passQr";
 import { verify, createKey, loadKey } from "../../lib/deviceKey";
 import { randomId, inviteCode } from "../../lib/id";
 import { atTime, todayKey } from "../../lib/time";
 import { b64uToJson } from "../../lib/b64";
+import { GENESIS, canonical, linkHash } from "../../lib/chain";
 import { motion as m } from "../../config/tokens";
 
 const latency = (min = 120, max = 380) => new Promise((r) => setTimeout(r, min + Math.random() * (max - min)));
@@ -209,11 +210,14 @@ export const terminalModeOf = (db: Db, kiosk?: Kiosk): TerminalMode => (perKiosk
 export const offlinePolicyOf = (db: Db, kiosk?: Kiosk): OfflinePolicy => (perKiosk(db) ? kiosk?.offlinePolicy : undefined) ?? db.settings.offlinePolicy ?? "GUARD";
 
 /** Киоск сообщает о себе (при старте и каждые 30 с). Неизвестный — получает код сопряжения. */
-export const kioskHello = (id: string) => mutate((d) => {
+export const kioskHello = (id: string, publicKey?: string) => mutate((d) => {
   d.kiosks ??= [];
   const k = d.kiosks.find((x) => x.id === id);
-  if (k) k.lastSeen = Date.now();
-  else d.kiosks.push({ id, pairCode: inviteCode(), createdAt: Date.now(), lastSeen: Date.now() });
+  if (k) {
+    k.lastSeen = Date.now();
+    // ADR-043: ключ терминала запоминается один раз (в продукте — при сопряжении). Подменить его потом нельзя.
+    if (publicKey && !k.publicKey) k.publicKey = publicKey;
+  } else d.kiosks.push({ id, pairCode: inviteCode(), createdAt: Date.now(), lastSeen: Date.now(), publicKey });
 });
 
 export const pairKiosk = async (code: string, p: { name: string; checkpointId: string; mode?: TerminalMode; offlinePolicy?: OfflinePolicy }) => {
@@ -233,7 +237,12 @@ export const updateKiosk = async (id: string, patch: Partial<Pick<Kiosk, "name" 
 /** Отвязать: терминал сразу перестаёт пропускать и показывает новый код сопряжения. */
 export const unpairKiosk = async (id: string) => {
   await latency(60, 160);
-  mutate((d) => { d.kiosks = (d.kiosks ?? []).filter((v) => v.id !== id); d.kiosks.push({ id, pairCode: inviteCode(), createdAt: Date.now(), lastSeen: Date.now() }); });
+  mutate((d) => {
+    const old = d.kiosks?.find((v) => v.id === id);
+    d.kiosks = (d.kiosks ?? []).filter((v) => v.id !== id);
+    // Ключ и журнал терминала остаются за устройством: после повторного сопряжения цепочка продолжается.
+    d.kiosks.push({ id, pairCode: inviteCode(), createdAt: Date.now(), lastSeen: Date.now(), publicKey: old?.publicKey, chain: old?.chain });
+  });
 };
 
 /** Ручной пропуск (ADR-040): действует сразу, но запись ждёт подтверждения вторым человеком. */
@@ -262,24 +271,70 @@ export const kioskSnapshot = async (kioskId: string): Promise<OfflineSnapshot | 
   };
 };
 
-/** ADR-042: терминал вернулся на связь — решения из очереди попадают в журнал, сервер сверяет их со своими данными. */
-export const syncOffline = async (kioskId: string, events: OfflineEvent[]) => {
+/**
+ * ADR-042/043: терминал вернулся на связь и прислал пакет проходов. Сервер не верит терминалу на слово:
+ * 1) подпись пакета ключом терминала — иначе пакет отклоняется целиком и остаётся в очереди;
+ * 2) цепочка хэшей — подделанная запись отбрасывается, пропуск или перестановка записей отмечаются конфликтом;
+ * 3) подпись сотрудника в исходном QR и время прохода внутри окна кода — терминал не может «провести» того, кого не было;
+ * 4) сверка со своими данными: отвязка телефона, повтор кода на другом терминале, блокировка.
+ */
+export const syncOffline = async (batch: OfflineBatch, signature: string): Promise<OfflineSyncResult> => {
   await latency(200, 450);
+  const fail = (error: string): OfflineSyncResult => {
+    mutate((d) => { const x = d.kiosks?.find((v) => v.id === batch.kioskId); if (x) x.syncError = { at: Date.now(), message: error }; });
+    return { ok: false, error, accepted: [], synced: 0, conflicts: 0, rejected: 0 };
+  };
+  const db0 = getDb();
+  const kiosk = db0.kiosks?.find((x) => x.id === batch.kioskId);
+  if (!kiosk?.publicKey) return fail("Терминал не зарегистрирован");
+  if (batch.v !== 1 || !Array.isArray(batch.events)) return fail("Неизвестный формат пакета");
+  if (!(await verify(kiosk.publicKey, signature, canonical(batch)))) return fail("Подпись пакета не сошлась — пакет отклонён");
+
+  // Проверки, которым нужен WebCrypto, — до записи в базу.
+  const tol = db0.settings.qrToleranceSec;
+  let head = kiosk.chain ?? { seq: 0, hash: GENESIS };
+  const checked: Array<{ e: OfflineBatch["events"][number]; conflict?: string; forged?: boolean }> = [];
+  for (const e of batch.events) {
+    if (db0.attempts.some((a) => a.id === e.id)) {
+      // Повторная отправка уже принятого пакета: запись пропускается, голова цепочки не откатывается.
+      if (e.hash && e.seq !== undefined && e.seq > head.seq) head = { seq: e.seq, hash: e.hash };
+      checked.push({ e }); continue;
+    }
+    if (!e.hash || e.seq === undefined) { checked.push({ e, conflict: "запись без подписи журнала" }); continue; }
+    if ((await linkHash(e)) !== e.hash) { checked.push({ e, forged: true }); continue; }
+    let conflict: string | undefined;
+    if (e.prev !== head.hash || e.seq !== head.seq + 1) conflict = "разрыв журнала терминала: часть записей пропала или переставлена";
+    head = { seq: e.seq, hash: e.hash };
+    if (!conflict && e.decision === "ALLOW") {
+      const qr = e.proof ? parsePassQr(e.proof) : null;
+      const devKey = qr && (db0.devices.find((x) => x.id === qr.deviceId)?.publicKey ?? (e.bindDevice?.id === qr.deviceId ? e.bindDevice.publicKey : undefined));
+      if (!qr || !devKey) conflict = "нет подписи сотрудника";
+      else if (qr.workerId !== e.workerId || `${qr.deviceId}|${qr.window}` !== e.useKey) conflict = "QR не совпадает с записью";
+      else if (qr.publicKey !== devKey || !(await verify(devKey, qr.signature, signedMessage(qr.workerId, qr.deviceId, qr.window)))) conflict = "подпись сотрудника не подтверждена";
+      else {
+        const lag = e.ts / 1000 - qr.window * QR_WINDOW_SEC;
+        if (lag < -QR_WINDOW_SEC || lag > QR_WINDOW_SEC + tol) conflict = "время прохода не совпадает с временем QR";
+      }
+    }
+    checked.push({ e, conflict });
+  }
+
   const syncedAt = Date.now();
-  let synced = 0;
-  let conflicts = 0;
+  const res: OfflineSyncResult = { ok: true, accepted: [], synced: 0, conflicts: 0, rejected: 0 };
   mutate((d) => {
-    for (const e of events) {
+    for (const { e, conflict: pre, forged } of checked) {
+      res.accepted.push(e.id);
+      if (forged) { res.rejected++; continue; }
       if (d.attempts.some((a) => a.id === e.id)) continue;
-      let conflict: string | undefined;
-      if (e.decision === "ALLOW") {
+      let conflict = pre;
+      if (!conflict && e.decision === "ALLOW") {
         const dev = e.useKey ? d.devices.find((x) => x.id === e.useKey!.split("|")[0]) : undefined;
         const w = d.workers.find((x) => x.id === e.workerId);
         if (dev?.revokedAt && dev.revokedAt < e.ts) conflict = "телефон отвязан до прохода";
         else if (e.useKey && d.qrUses.includes(e.useKey)) conflict = "этот QR уже погашен на другом терминале";
         else if (w?.status === "blocked") conflict = "сотрудник заблокирован";
       }
-      if (conflict) conflicts++;
+      if (conflict) res.conflicts++;
       if (e.useKey && !d.qrUses.includes(e.useKey)) d.qrUses.push(e.useKey);
       const b = e.bindDevice;
       if (b && e.workerId && !conflict && !d.devices.some((x) => x.id === b.id)) {
@@ -289,15 +344,15 @@ export const syncOffline = async (kioskId: string, events: OfflineEvent[]) => {
       d.attempts.push({
         id: e.id, ts: e.ts, workerId: e.workerId, checkpointId: e.checkpointId, direction: e.direction, decision: e.decision, code: e.code, source: "OFFLINE",
         note: conflict ? `Конфликт при синхронизации: ${conflict}` : "Проверено терминалом без связи",
-        offline: { kioskId, syncedAt, conflict },
+        offline: { kioskId: batch.kioskId, syncedAt, conflict, seq: e.seq, signed: !!e.hash },
       });
-      synced++;
+      res.synced++;
     }
     d.attempts.sort((a, b) => a.ts - b.ts);
-    const k = d.kiosks?.find((x) => x.id === kioskId);
-    if (k) k.lastSeen = syncedAt;
+    const k = d.kiosks?.find((x) => x.id === batch.kioskId);
+    if (k) { k.lastSeen = syncedAt; k.chain = head; k.syncError = res.rejected ? { at: syncedAt, message: `Отклонено изменённых записей: ${res.rejected}` } : undefined; }
   });
-  return { synced, conflicts };
+  return res;
 };
 
 export const kioskManual = async (workerId: string, checkpointId: string, note: string, guard = "Охранник поста") => {

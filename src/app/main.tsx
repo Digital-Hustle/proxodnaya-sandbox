@@ -3,10 +3,12 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router";
 import { MotionConfig } from "motion/react";
 import { Toaster, applyStoredTheme } from "@/shared/ui";
+import { setupPwa } from "@/shared/lib";
 import { router, prefetchRoutes } from "./providers/router";
 import "./styles/index.css";
 
 applyStoredTheme();
+setupPwa();
 prefetchRoutes();
 
 // Заставка из index.html: плавно гасим после первой отрисовки приложения
