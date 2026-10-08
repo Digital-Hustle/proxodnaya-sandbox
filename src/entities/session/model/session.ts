@@ -2,11 +2,11 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Role } from "@/shared/api";
 
-export type Perm = "dashboard" | "people" | "journal" | "shifts" | "analytics" | "assistant" | "terminals" | "settings" | "reviewManual";
+export type Perm = "dashboard" | "people" | "journal" | "shifts" | "analytics" | "assistant" | "terminals" | "settings" | "reviewManual" | "access";
 
 export const PERMS: { id: Perm; label: string }[] = [
   { id: "dashboard", label: "Обстановка" }, { id: "people", label: "Люди" }, { id: "journal", label: "Журнал" }, { id: "shifts", label: "Смены" },
-  { id: "analytics", label: "Аналитика" }, { id: "assistant", label: "Помощник" }, { id: "terminals", label: "Терминалы" }, { id: "settings", label: "Настройки" }, { id: "reviewManual", label: "Проверка ручных" },
+  { id: "analytics", label: "Аналитика" }, { id: "assistant", label: "Помощник" }, { id: "terminals", label: "Терминалы" }, { id: "settings", label: "Настройки" }, { id: "reviewManual", label: "Проверка ручных" }, { id: "access", label: "Выдача ролей" },
 ];
 
 export const ROLES: { id: Role; label: string; text: string }[] = [
@@ -30,6 +30,6 @@ export const can = (role: Role, perm: Perm) => MATRIX[role].includes(perm);
 export const roleLabel = (role: Role) => ROLES.find((r) => r.id === role)?.label ?? role;
 
 /** Роль текущего пользователя панели. В демо переключается в шапке. */
-export const useSession = create<{ role: Role; setRole: (r: Role) => void }>()(
-  persist((set) => ({ role: "ADMIN", setRole: (role) => set({ role }) }), { name: "proxodnaya.session" }),
+export const useSession = create<{ userId: string; role: Role; signIn: (userId: string, role: Role) => void; setRole: (r: Role) => void }>()(
+  persist((set) => ({ userId: "u_admin", role: "ADMIN", signIn: (userId, role) => set({ userId, role }), setRole: (role) => set({ role }) }), { name: "proxodnaya.session" }),
 );

@@ -21,13 +21,15 @@ const ReviewMark = ({ a, onOpen }: { a: Attempt; onOpen: (a: Attempt) => void })
 
 const ReviewDialog = ({ a, who, where, onClose }: { a: Attempt; who: string; where: string; onClose: () => void }) => {
   const role = useSession((x) => x.role);
+  const userId = useSession((x) => x.userId);
+  const me = useDb().admins?.find((u) => u.id === userId);
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
   const allowed = can(role, "reviewManual") && !a.review;
   const act = async (status: "CONFIRMED" | "DISPUTED") => {
     setBusy(true);
     try {
-      await api.reviewManual(a.id, status, roleLabel(role), comment);
+      await api.reviewManual(a.id, status, me ? `${me.name}, ${roleLabel(role)}` : roleLabel(role), comment);
       toast.success(status === "CONFIRMED" ? "Ручной пропуск подтверждён" : "Пропуск оспорен — нужен разбор инцидента");
       onClose();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Не удалось сохранить"); } finally { setBusy(false); }

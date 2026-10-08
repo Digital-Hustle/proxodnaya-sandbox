@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import { motion } from "motion/react";
 import { ExternalLink, MonitorSmartphone } from "lucide-react";
-import { Aurora, KIOSK_AURORA, Button, StyledQr } from "@/shared/ui";
+import { Button, StyledQr } from "@/shared/ui";
 import { routes, absoluteUrl } from "@/shared/const/router";
 import { fadeUp, popIn, stagger } from "@/shared/config/motion";
 
@@ -11,8 +11,7 @@ const STEPS = ["Откройте админку → «Терминалы»", "В
 export const PairingScreen = ({ code }: { code: string }) => {
   const path = `${routes.adminTerminals}?code=${code}`;
   return (
-    <div className="relative isolate flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-card shadow-card ring-1 ring-white/10">
-      <div aria-hidden className="absolute inset-0"><Aurora tone="kiosk" intensity={KIOSK_AURORA} /></div>
+    <div className="relative isolate flex min-h-0 flex-1 flex-col">
       <motion.div variants={stagger(0.06)} initial="hidden" animate="show" className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-6 overflow-y-auto p-5 text-center text-white sm:gap-8 sm:p-8">
         <motion.span variants={popIn} className="flex size-14 items-center justify-center rounded-full bg-white/10 backdrop-blur-md"><MonitorSmartphone className="size-7" /></motion.span>
         <motion.div variants={fadeUp} className="flex flex-col gap-2">

@@ -1,6 +1,6 @@
 // Мок-бэкенд в браузере. Решение о проходе принимается ЗДЕСЬ, а не в компонентах (как Д2 в продукте:
 // UI только показывает то, что вернул «сервер»).
-import type { Attempt, Challenge, Checkpoint, Db, Kiosk, TerminalMode, OfflinePolicy, ManualReview, DecisionResult, Device, Direction, FrameStat, ReasonCode, Shift, Worker } from "../types";
+import type { Attempt, Challenge, Checkpoint, Db, Kiosk, TerminalMode, OfflinePolicy, ManualReview, AdminUser, AccessEvent, Role, DecisionResult, Device, Direction, FrameStat, ReasonCode, Shift, Worker } from "../types";
 import { getDb, mutate, resetDb } from "./store";
 import { REASONS } from "./reasons";
 import { presenceNow, shiftFor, buildIntervals } from "./derived";
@@ -499,4 +499,80 @@ export const seedScale = async () => {
     }
     d.attempts.sort((a, b) => a.ts - b.ts);
   });
+};
+
+
+// ---------- Доступ к панели (ADR-041) ----------
+const adminsOf = (db: Db) => db.admins ?? [];
+const activeAdminCount = (db: Db) => adminsOf(db).filter((u) => u.role === "ADMIN" && u.status === "ACTIVE").length;
+const isLastAdmin = (db: Db, u: AdminUser) => u.role === "ADMIN" && u.status === "ACTIVE" && activeAdminCount(db) <= 1;
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Менять доступ может только действующий администратор — проверка на сервере, не только в интерфейсе. */
+const requireAdmin = (db: Db, byId: string) => {
+  const u = adminsOf(db).find((x) => x.id === byId);
+  if (!u || u.status !== "ACTIVE" || u.role !== "ADMIN") throw new Error("Менять доступ может только администратор");
+  return u;
+};
+const targetOf = (db: Db, id: string) => {
+  const u = adminsOf(db).find((x) => x.id === id);
+  if (!u) throw new Error("Пользователь не найден");
+  return u;
+};
+const logAccess = (d: Db, e: Omit<AccessEvent, "id" | "ts">) => {
+  d.accessLog = [{ id: randomId("ae"), ts: Date.now(), ...e }, ...(d.accessLog ?? [])].slice(0, 500);
+};
+
+export const inviteAdmin = async (p: { name: string; email: string; role: Role }, byId: string) => {
+  await latency();
+  const db = getDb();
+  requireAdmin(db, byId);
+  const name = p.name.trim().replace(/\s+/g, " ");
+  const email = p.email.trim().toLowerCase();
+  if (name.length < 2) throw new Error("Укажите имя и фамилию");
+  if (!EMAIL.test(email)) throw new Error("Проверьте адрес почты");
+  if (adminsOf(db).some((u) => u.email === email)) throw new Error("Пользователь с такой почтой уже есть");
+  const u: AdminUser = { id: randomId("u"), name, email, role: p.role, status: "INVITED", createdAt: Date.now() };
+  mutate((d) => { d.admins = [...(d.admins ?? []), u]; logAccess(d, { by: byId, target: u.id, action: "INVITE", to: p.role }); });
+  return u;
+};
+
+export const setAdminRole = async (id: string, role: Role, byId: string) => {
+  await latency();
+  const db = getDb();
+  requireAdmin(db, byId);
+  if (id === byId) throw new Error("Свою роль поменять нельзя — это делает другой администратор");
+  const u = targetOf(db, id);
+  if (u.role === role) return u;
+  if (isLastAdmin(db, u)) throw new Error("Это последний администратор — сначала назначьте другого");
+  mutate((d) => { const x = d.admins?.find((v) => v.id === id); if (x) { logAccess(d, { by: byId, target: id, action: "ROLE", from: x.role, to: role }); x.role = role; } });
+  return { ...u, role };
+};
+
+export const setAdminActive = async (id: string, active: boolean, byId: string) => {
+  await latency();
+  const db = getDb();
+  requireAdmin(db, byId);
+  if (id === byId) throw new Error("Себе доступ отключить нельзя");
+  const u = targetOf(db, id);
+  if (!active && isLastAdmin(db, u)) throw new Error("Это последний администратор — сначала назначьте другого");
+  mutate((d) => {
+    const x = d.admins?.find((v) => v.id === id);
+    if (!x) return;
+    x.status = active ? (x.lastSeen ? "ACTIVE" : "INVITED") : "DISABLED";
+    logAccess(d, { by: byId, target: id, action: active ? "ENABLE" : "DISABLE" });
+  });
+};
+
+/** Вход в панель (в демо — «войти как»). Приглашённый при первом входе становится активным. */
+export const signInAdmin = (id: string) => {
+  const u = targetOf(getDb(), id);
+  if (u.status === "DISABLED") throw new Error("Доступ отключён администратором");
+  mutate((d) => {
+    const x = d.admins?.find((v) => v.id === id);
+    if (!x) return;
+    x.lastSeen = Date.now();
+    if (x.status === "INVITED") { x.status = "ACTIVE"; logAccess(d, { by: id, target: id, action: "JOIN" }); }
+  });
+  return u;
 };

@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, Link, Outlet, useLocation, useNavigate } from "react-router";
 import { motion } from "motion/react";
-import { LayoutGrid, Users, ScrollText, CalendarClock, BarChart3, Sparkles, Settings, MoreHorizontal, ScanLine, Home, ChevronRight, MonitorSmartphone, UserCog, Lock } from "lucide-react";
-import { useSession, can, roleLabel, ROLES, type Perm } from "@/entities/session";
+import { LayoutGrid, Users, ScrollText, CalendarClock, BarChart3, Sparkles, Settings, MoreHorizontal, ScanLine, Home, ChevronRight, MonitorSmartphone, UserCog, Lock, KeyRound } from "lucide-react";
+import { useSession, can, roleLabel, type Perm } from "@/entities/session";
 import { AssistantFab } from "@/features/ask-assistant";
-import { EmptyState, Logo, ThemePicker, PreferencesButton, OfflineBanner, Dialog, Button, HeaderBar, NavTrack, TrackIndicator, useTrackIndicator } from "@/shared/ui";
+import { Avatar, Status, toast, EmptyState, Logo, ThemePicker, PreferencesButton, OfflineBanner, Dialog, Button, HeaderBar, NavTrack, TrackIndicator, useTrackIndicator } from "@/shared/ui";
 import { routes } from "@/shared/const/router";
 import { cn } from "@/shared/lib";
+import { api, useDb } from "@/shared/api";
 import { pageIn, press, duration } from "@/shared/config/motion";
 
 const NAV: { to: string; label: string; short: string; icon: typeof Users; perm: Perm; end?: boolean }[] = [
@@ -17,6 +18,7 @@ const NAV: { to: string; label: string; short: string; icon: typeof Users; perm:
   { to: routes.adminAnalytics, label: "Аналитика", short: "Аналитика", icon: BarChart3, perm: "analytics" },
   { to: routes.adminAssistant, label: "Помощник", short: "Помощник", icon: Sparkles, perm: "assistant" },
   { to: routes.adminTerminals, label: "Терминалы", short: "Терминалы", icon: MonitorSmartphone, perm: "terminals" },
+  { to: routes.adminAccess, label: "Доступ", short: "Доступ", icon: KeyRound, perm: "access" },
   { to: routes.adminSettings, label: "Настройки", short: "Настройки", icon: Settings, perm: "settings" },
 ];
 const MOBILE_PREF: Perm[] = ["dashboard", "people", "journal", "assistant"];
@@ -27,7 +29,20 @@ export const AdminShell = () => {
   const nav = useNavigate();
   const [more, setMore] = useState(false);
   const [roleOpen, setRoleOpen] = useState(false);
-  const { role, setRole } = useSession();
+  const { role, userId, signIn } = useSession();
+  const db = useDb();
+  const admins = db.admins ?? [];
+  const me = admins.find((u) => u.id === userId);
+  // Роль берётся из учётной записи: администратор поменял её в «Доступе» — панель сразу перестраивается.
+  useEffect(() => {
+    if (me && me.status !== "DISABLED") { if (me.role !== role) signIn(me.id, me.role); return; }
+    const fallback = admins.find((u) => u.role === "ADMIN" && u.status === "ACTIVE");
+    if (fallback) { if (me) toast.info("Ваш доступ отключён — вы вошли как администратор"); signIn(fallback.id, fallback.role); }
+  }, [me, role, admins, signIn]);
+  const switchTo = (id: string) => {
+    try { const u = api.signInAdmin(id); signIn(u.id, u.role); setRoleOpen(false); toast.success(`Вы вошли как ${u.name}`); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Не удалось войти"); }
+  };
   const items = NAV.filter((n) => can(role, n.perm));
   const MOBILE = items.filter((n) => MOBILE_PREF.includes(n.perm)).slice(0, 4);
   const MORE = items.filter((n) => !MOBILE.includes(n));
@@ -43,7 +58,7 @@ export const AdminShell = () => {
         <Link to={routes.home} className="shrink-0 rounded-md px-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"><Logo sub="администратор" /></Link>
         <NavTrack items={items.map(({ to, label, end }) => ({ to, label, end }))} className="ml-auto hidden lg:block xl:ml-6" />
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
-          <Button variant="quiet" className="hidden h-12 rounded-md md:inline-flex" onClick={() => setRoleOpen(true)} aria-label={`Роль: ${roleLabel(role)}`}><UserCog /><span className="hidden 2xl:inline">{roleLabel(role)}</span></Button>
+          <Button variant="quiet" className="hidden h-12 rounded-md md:inline-flex" onClick={() => setRoleOpen(true)} aria-label={`Пользователь: ${me?.name ?? ""}, ${roleLabel(role)}`}>{me ? <Avatar name={me.name} className="size-7" /> : <UserCog />}<span className="hidden 2xl:inline">{roleLabel(role)}</span></Button>
           <PreferencesButton className="hidden lg:flex" />
           <Link to={routes.kiosk} target="_blank" className="hidden md:block" tabIndex={-1}><Button variant="brand" className="h-12 rounded-md"><ScanLine />Киоск</Button></Link>
           <Link to={routes.kiosk} target="_blank" className="md:hidden" tabIndex={-1}><Button variant="brand" size="icon" className="size-12" aria-label="Открыть киоск"><ScanLine /></Button></Link>
@@ -74,7 +89,7 @@ export const AdminShell = () => {
       <Dialog open={more} onClose={() => setMore(false)} title="Ещё">
         <div className="flex flex-col gap-1">
           <button type="button" onClick={() => { setMore(false); setRoleOpen(true); }} className="flex min-h-control-lg items-center gap-3 rounded-md px-3 text-left text-base font-medium transition-colors duration-fast hover:bg-surface">
-            <UserCog className="size-5 shrink-0" /><span className="flex-1">Роль<span className="block text-sm font-normal text-muted-foreground">{roleLabel(role)}</span></span><ChevronRight className="size-4 text-subtle-foreground" />
+            <UserCog className="size-5 shrink-0" /><span className="flex-1">{me?.name ?? "Пользователь"}<span className="block text-sm font-normal text-muted-foreground">{roleLabel(role)}</span></span><ChevronRight className="size-4 text-subtle-foreground" />
           </button>
           {[...MORE, { to: routes.home, label: "На главную", icon: Home }].map(({ to, label, icon: Icon }) => (
             <button key={to} type="button" onClick={() => { setMore(false); nav(to); }}
@@ -88,12 +103,14 @@ export const AdminShell = () => {
         </div>
       </Dialog>
 
-      <Dialog open={roleOpen} onClose={() => setRoleOpen(false)} title="Роль" description="Для демонстрации: в продукте роль задаёт администратор, а права проверяет сервер">
-        <div role="radiogroup" aria-label="Роль" className="flex flex-col gap-2">
-          {ROLES.map((r) => (
-            <button key={r.id} type="button" role="radio" aria-checked={role === r.id} onClick={() => { setRole(r.id); setRoleOpen(false); }}
-              className={cn("flex flex-col gap-0.5 rounded-lg border px-4 py-3 text-left outline-none transition-colors duration-fast focus-visible:ring-2 focus-visible:ring-ring", role === r.id ? "border-primary bg-accent text-accent-foreground" : "border-border hover:bg-surface")}>
-              <span className="font-medium">{r.label}</span><span className="text-sm opacity-75">{r.text}</span>
+      <Dialog open={roleOpen} onClose={() => setRoleOpen(false)} title="Сменить пользователя" description="Демо: в продукте вход по корпоративной учётной записи. Роль задаёт администратор в разделе «Доступ», права проверяет сервер">
+        <div role="radiogroup" aria-label="Пользователь" className="flex flex-col gap-2">
+          {admins.filter((u) => u.status !== "DISABLED").map((u) => (
+            <button key={u.id} type="button" role="radio" aria-checked={u.id === userId} onClick={() => switchTo(u.id)}
+              className={cn("flex items-center gap-3 rounded-lg border px-4 py-3 text-left outline-none transition-colors duration-fast focus-visible:ring-2 focus-visible:ring-ring", u.id === userId ? "border-primary bg-accent text-accent-foreground" : "border-border hover:bg-surface")}>
+              <Avatar name={u.name} className="size-9" />
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5"><span className="truncate font-medium">{u.name}</span><span className="truncate text-sm opacity-75">{roleLabel(u.role)}</span></span>
+              {u.status === "INVITED" && <Status tone="info">приглашён</Status>}
             </button>
           ))}
         </div>

@@ -15,6 +15,7 @@ export const routes = {
   adminAssistant: "/admin/assistant",
   adminSettings: "/admin/settings",
   adminTerminals: "/admin/terminals",
+  adminAccess: "/admin/access",
 } as const;
 
 /** Абсолютная ссылка на маршрут внутри HashRouter (для QR и «открыть на телефоне»). */

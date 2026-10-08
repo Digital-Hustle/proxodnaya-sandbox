@@ -123,6 +123,7 @@ export const SettingsPage = () => {
                 ))}</tbody>
               </table>
             </div>
+            {can(role, "access") && <Link to={routes.adminAccess} className="self-start text-sm font-medium underline-offset-4 hover:underline">Назначить роли людям →</Link>}
           </div>
         </Card></motion.div>
         <motion.div variants={fadeUp}><Card>

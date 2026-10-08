@@ -4,6 +4,18 @@ import { mulberry32 } from "../../lib/id";
 
 export const DB_VERSION = 4;
 
+/** Пользователи панели для демо: по одному на каждую роль. */
+export const seedAdmins = (): import("../types").AdminUser[] => {
+  const t = Date.now() - 30 * 86400000;
+  return [
+    { id: "u_admin", name: "Ольга Смирнова", email: "o.smirnova@proxodnaya.ru", role: "ADMIN", status: "ACTIVE", createdAt: t, lastSeen: Date.now() },
+    { id: "u_sec", name: "Игорь Ковалёв", email: "i.kovalev@proxodnaya.ru", role: "SECURITY_OFFICER", status: "ACTIVE", createdAt: t, lastSeen: Date.now() - 3600000 },
+    { id: "u_mgr", name: "Марина Белова", email: "m.belova@proxodnaya.ru", role: "MANAGER", status: "ACTIVE", createdAt: t, lastSeen: Date.now() - 86400000 },
+    { id: "u_inst", name: "Артём Зайцев", email: "a.zaitsev@proxodnaya.ru", role: "INSTALLER", status: "ACTIVE", createdAt: t, lastSeen: Date.now() - 3 * 86400000 },
+    { id: "u_guard", name: "Сергей Попов", email: "s.popov@proxodnaya.ru", role: "GUARD", status: "ACTIVE", createdAt: t, lastSeen: Date.now() - 7200000 },
+  ];
+};
+
 const PEOPLE: [string, string, string][] = [
   ["Иванов Пётр Сергеевич", "Монтажник", "СтройМонтаж"],
   ["Ахмедов Рустам Каримович", "Сварщик", "СтройМонтаж"],
@@ -100,7 +112,7 @@ export const createSeed = (): Db => {
   attempts.sort((a, b) => a.ts - b.ts);
   return {
     version: DB_VERSION,
-    workers, devices: [], zones, checkpoints, shifts, attempts, qrUses: [], kiosks: [],
+    workers, devices: [], zones, checkpoints, shifts, attempts, qrUses: [], kiosks: [], admins: seedAdmins(), accessLog: [],
     settings: { faceThreshold: 0.6, qrToleranceSec: 45, shiftGraceMin: 60, requireShift: true, demoFace: "match" },
   };
 };

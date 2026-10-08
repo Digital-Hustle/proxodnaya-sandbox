@@ -2,7 +2,7 @@
 // Это замена PostgreSQL на время чернового стенда — продуктовый бэкенд живёт в основном репо.
 import { useSyncExternalStore } from "react";
 import type { Db } from "../types";
-import { createSeed, DB_VERSION } from "./seed";
+import { createSeed, seedAdmins, DB_VERSION } from "./seed";
 
 const KEY = "proxodnaya.sandbox.db";
 const channel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("proxodnaya-db") : null;
@@ -13,7 +13,7 @@ const load = (): Db => {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const db = JSON.parse(raw) as Db;
-      if (db.version === DB_VERSION) return { ...db, kiosks: db.kiosks ?? [] }; // поля ADR-038 добавляются без сброса данных
+      if (db.version === DB_VERSION) return { ...db, kiosks: db.kiosks ?? [], admins: db.admins ?? seedAdmins(), accessLog: db.accessLog ?? [] }; // поля ADR-038 добавляются без сброса данных
     }
   } catch { /* битые данные — пересоздаём */ }
   const seed = createSeed();

@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Camera, CameraOff, QrCode, ScanFace } from "lucide-react";
 import { api, type Challenge, type DecisionResult, type TerminalMode } from "@/shared/api";
 import { useCamera, useMotionDetect } from "@/shared/hooks";
-import { Aurora, KIOSK_AURORA, Button, Spinner } from "@/shared/ui";
+import { Button, Spinner } from "@/shared/ui";
 import { cn } from "@/shared/lib";
 import { spring, tween, popIn, duration, ease } from "@/shared/config/motion";
 import { useQrScanner } from "@/features/scan-qr";
@@ -85,9 +85,8 @@ export const KioskTerminal = ({ checkpointId, mode = "QR_FACE", demoOpen, setDem
   const reset = useCallback(() => setState({ kind: "idle" }), []);
 
   return (
-    <div className="relative isolate flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-card shadow-card ring-1 ring-white/10">
+    <div className="relative isolate flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl">
       <video ref={cam.videoRef} playsInline muted className={cn("absolute inset-0 size-full -scale-x-100 object-cover transition-opacity duration-slow", showVideo ? "opacity-100" : "opacity-0")} />
-      <motion.div aria-hidden className="absolute inset-0" animate={{ opacity: showVideo ? 0 : 1 }} transition={tween.base}><Aurora tone="kiosk" intensity={KIOSK_AURORA} /></motion.div>
       <motion.div aria-hidden className="absolute inset-0 bg-linear-to-t from-black/70 via-black/10 to-black/30" animate={{ opacity: showVideo ? 1 : 0 }} transition={tween.base} />
 
       <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-6 overflow-y-auto p-5 text-center sm:gap-8 sm:p-8">

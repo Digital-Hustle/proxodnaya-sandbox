@@ -109,6 +109,11 @@ export type Kiosk = {
 /** Роли панели (FR-60) + инженер терминалов. */
 export type Role = "ADMIN" | "SECURITY_OFFICER" | "MANAGER" | "INSTALLER" | "GUARD";
 
+/** Пользователь панели (ADR-041). INVITED — приглашён, ещё не входил; DISABLED — доступ отозван. */
+export type AdminUser = { id: string; name: string; email: string; role: Role; status: "ACTIVE" | "INVITED" | "DISABLED"; createdAt: number; lastSeen?: number };
+/** Запись журнала доступа: кто, кому, что и когда. Только дописывается. */
+export type AccessEvent = { id: string; ts: number; by: string; target: string; action: "INVITE" | "ROLE" | "DISABLE" | "ENABLE" | "JOIN"; from?: Role; to?: Role };
+
 export type Db = {
   version: number;
   workers: Worker[];
@@ -121,6 +126,9 @@ export type Db = {
   settings: Settings;
   /** ADR-038: сопряжённые и ожидающие терминалы. Необязательно — старые базы без поля. */
   kiosks?: Kiosk[];
+  /** ADR-041: пользователи панели и журнал выдачи доступа. */
+  admins?: AdminUser[];
+  accessLog?: AccessEvent[];
 };
 
 export type Interval = { workerId: string; zoneId: string; start: number; end?: number };

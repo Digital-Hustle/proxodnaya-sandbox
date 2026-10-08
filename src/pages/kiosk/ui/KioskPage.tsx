@@ -54,7 +54,7 @@ export const KioskPage = () => {
   const view = !paired ? "pair" : online ? "live" : "offline";
 
   return (
-    <div className="flex h-dvh flex-col gap-3 px-3 pb-3 pt-safe text-foreground sm:gap-4 sm:px-5 sm:pb-5">
+    <div className="flex h-dvh flex-col gap-3 bg-background/30 px-3 pb-3 pt-safe text-foreground sm:gap-4 sm:px-5 sm:pb-5">
       <header className="flex shrink-0 items-center gap-2 pt-3 sm:gap-3 sm:pt-4">
         <button type="button" aria-label="Сервисная панель (удерживайте)" onPointerDown={startHold} onPointerUp={endHold} onPointerLeave={endHold} onContextMenu={(e) => e.preventDefault()}
           className="shrink-0 select-none rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring" onKeyDown={(e) => { if (e.key === "Enter" && e.shiftKey) setService(true); }}>
