@@ -47,11 +47,11 @@ export const AdminShell = () => {
 
       {/* Нижняя навигация телефона: плавающая панель */}
       <nav className="fixed inset-x-0 bottom-0 z-nav px-3 pb-safe lg:hidden" aria-label="Разделы">
-        <div ref={ind.ref} className="relative mx-auto mb-3 flex max-w-md items-stretch gap-1 rounded-xl bg-card/90 p-1.5 shadow-float backdrop-blur-xl">
-          <TrackIndicator ind={ind} className="inset-y-1.5 rounded-lg bg-accent" />
+        <div ref={ind.ref} className="relative mx-auto mb-3 flex max-w-md items-stretch gap-0.5 rounded-xl bg-card/90 p-1 shadow-float backdrop-blur-xl">
+          <TrackIndicator ind={ind} className="inset-y-1 rounded-lg bg-accent" />
           {MOBILE.map(({ to, short, icon: Icon, end }) => (
             <NavLink key={to} to={to} end={end} className={({ isActive }) => cn("relative flex min-h-control-lg min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-md text-xs font-medium outline-none", isActive ? "text-accent-foreground" : "text-muted-foreground")}>
-              <Icon className="relative z-raised size-5" /><span className="relative z-raised max-w-full truncate px-0.5">{short}</span>
+              <Icon className="relative z-raised size-5" /><span className="relative z-raised max-w-full truncate tracking-tight">{short}</span>
             </NavLink>
           ))}
           <motion.button type="button" {...press} onClick={() => setMore(true)} data-active={inMore} className={cn("relative flex min-h-control-lg min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-md text-xs font-medium", inMore ? "text-accent-foreground" : "text-muted-foreground")}>

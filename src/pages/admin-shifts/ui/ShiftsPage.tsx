@@ -37,7 +37,7 @@ export const ShiftsPage = () => {
 
   return (
     <div>
-      <PageHeader title="Смены" sub="Пунктир — плановая смена, зелёная полоса — фактическое присутствие"
+      <PageHeader title="Смены" sub="Пунктиром показана плановая смена, зелёной полосой — фактическое присутствие. Нажмите на строку, чтобы изменить смену"
         actions={
           <div className="flex items-center gap-1 rounded-md bg-card p-1 shadow-xs">
             <Button variant="quiet" size="icon-sm" aria-label="Предыдущий день" onClick={() => shift(-1)}><ChevronLeft /></Button>
@@ -45,14 +45,14 @@ export const ShiftsPage = () => {
             <Button variant="quiet" size="icon-sm" aria-label="Следующий день" onClick={() => shift(1)}><ChevronRight /></Button>
           </div>
         } />
-      <Card className="overflow-hidden">
+      <motion.div variants={fadeUp} initial="hidden" animate="show"><Card className="overflow-hidden">
         <div className="flex items-end border-b border-border px-4 pb-2 pt-4 sm:px-6">
           <div className="hidden w-60 shrink-0 text-xs text-muted-foreground md:block">Сотрудник</div>
           <div className="relative h-4 min-w-0 flex-1 text-xs tabular-nums text-muted-foreground">
             {HOURS.map((h) => <span key={h} className="absolute -translate-x-1/2 first:translate-x-0" style={{ left: `${((h - FROM) / (TO - FROM)) * 100}%` }}>{String(h).padStart(2, "0")}:00</span>)}
           </div>
         </div>
-        <motion.ul variants={stagger(0.02)} initial="hidden" animate="show">
+        <motion.ul key={day} variants={stagger(0.03, 0.1)} initial="hidden" animate="show">
           {rows.map(({ w, s, iv }) => (
             <motion.li key={w.id} variants={fadeUp} className="border-b border-border last:border-0">
               <button type="button" onClick={() => setEdit({ workerId: w.id, start: s?.start ?? "08:00", end: s?.end ?? "17:00" })}
@@ -67,7 +67,7 @@ export const ShiftsPage = () => {
             </motion.li>
           ))}
         </motion.ul>
-      </Card>
+      </Card></motion.div>
       <Dialog open={!!edit} onClose={() => setEdit(null)} title="Смена" description={dayTitle(day)}
         footer={edit && (<>
           {existing && <Button variant="danger-soft" className="sm:mr-auto" onClick={() => api.deleteShift(existing.id).then(() => { setEdit(null); toast.info("Смена удалена"); })}><Trash2 />Удалить</Button>}
@@ -78,7 +78,7 @@ export const ShiftsPage = () => {
             <Field label="Сотрудник"><Select value={edit.workerId} onChange={(v) => setEdit({ ...edit, workerId: v })} options={db.workers.map((w) => ({ value: w.id, label: w.fullName, hint: w.position }))} /></Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Начало"><Input type="time" value={edit.start} onChange={(e) => setEdit({ ...edit, start: e.target.value })} /></Field>
-              <Field label="Конец" error={edit.start >= edit.end ? "Позже начала" : null}><Input type="time" value={edit.end} onChange={(e) => setEdit({ ...edit, end: e.target.value })} /></Field>
+              <Field label="Конец" error={edit.start >= edit.end ? "Должен быть позже начала" : null}><Input type="time" value={edit.end} onChange={(e) => setEdit({ ...edit, end: e.target.value })} /></Field>
             </div>
           </div>
         )}

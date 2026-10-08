@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "motion/react";
 import type { DecisionResult } from "@/shared/api";
-import { decisionView } from "@/entities/pass";
+import { viewForResult } from "@/entities/pass";
 import { Avatar } from "@/shared/ui";
 import { cn, hhmm, sound } from "@/shared/lib";
 import { spring, tween, fadeUp, stagger } from "@/shared/config/motion";
@@ -10,14 +10,15 @@ import { motion as m } from "@/shared/config/tokens";
 
 /** Экран вердикта: читается с 3 метров, текст — как пришёл с сервера, автосброс. Глубокий тон, не кислотный. */
 export const DecisionScreen = ({ result, onDone }: { result: DecisionResult; onDone: () => void }) => {
-  const v = decisionView[result.decision];
+  const v = viewForResult(result);
+  const repeat = result.code === "REPEAT_SCAN";
   const Icon = v.icon;
-  const hold = result.decision === "ALLOW" ? m.kiosk.resultHoldMs : m.kiosk.resultHoldMs * 1.5;
+  const hold = result.decision === "ALLOW" || repeat ? m.kiosk.resultHoldMs : m.kiosk.resultHoldMs * 1.5;
   useEffect(() => {
-    (result.decision === "ALLOW" || result.decision === "MANUAL" ? sound.allow : sound.deny)();
+    (repeat ? sound.tick : result.decision === "ALLOW" || result.decision === "MANUAL" ? sound.allow : sound.deny)();
     const id = setTimeout(onDone, hold);
     return () => clearTimeout(id);
-  }, [result, onDone, hold]);
+  }, [result, onDone, hold, repeat]);
 
   return createPortal(
     <motion.button type="button" onClick={onDone} aria-live="assertive"
@@ -40,7 +41,7 @@ export const DecisionScreen = ({ result, onDone }: { result: DecisionResult; onD
             <Avatar name={result.worker.fullName} photo={result.worker.photo} className="size-14 text-lg sm:size-16" />
             <div className="min-w-0">
               <div className="truncate text-lg font-medium sm:text-xl">{result.worker.fullName}</div>
-              <div className="text-sm opacity-80 sm:text-base">{result.worker.position} · {result.decision === "ALLOW" || result.decision === "MANUAL" ? (result.direction === "IN" ? "вход" : "выход") : "попытка"} в {hhmm(result.ts)}{result.score ? ` · сходство ${Math.round(result.score * 100)}%` : ""}</div>
+              <div className="text-sm opacity-80 sm:text-base">{result.worker.position} · {result.decision === "ALLOW" || result.decision === "MANUAL" ? (result.direction === "IN" ? "вход" : "выход") : repeat ? "повторный скан" : "попытка"} в {hhmm(result.ts)}{result.score ? ` · сходство ${Math.round(result.score * 100)}%` : ""}</div>
             </div>
           </motion.div>
         )}

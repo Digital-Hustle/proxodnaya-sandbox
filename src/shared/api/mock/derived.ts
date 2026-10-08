@@ -85,3 +85,12 @@ export const loadByHour = (db: Db, fromTs: number) => {
 };
 
 export const lastDays = (n: number) => Array.from({ length: n }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - (n - 1 - i)); return todayKey(d); });
+
+/** ADR-037: срок «забытого выхода», ч. Совпадает с умолчанием сервера. */
+export const presenceTtlHours = (db: Db) => db.settings.presenceTtlHours ?? 16;
+
+/** Незакрытые интервалы: вход без выхода старше presenceTtlHours. В «на объекте» их не считаем — следующий скан будет входом. */
+export const unclosedIntervals = (db: Db, now = Date.now()) => {
+  const ttl = presenceTtlHours(db) * 3600000;
+  return buildIntervals(db).filter((i) => i.end === undefined && now - i.start > ttl);
+};

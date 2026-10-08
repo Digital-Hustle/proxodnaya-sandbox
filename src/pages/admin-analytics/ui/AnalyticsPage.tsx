@@ -2,22 +2,23 @@ import { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Area, AreaChart } from "recharts";
 import { Info } from "lucide-react";
-import { useDb, dailyStats, lastDays, loadByHour, refusalsByCode, REASONS } from "@/shared/api";
-import { Card, CardHeader, CardTitle, Dialog, Segmented, Button, AnimatedNumber, PageHeader } from "@/shared/ui";
-import { atTime, cn } from "@/shared/lib";
+import { useDb, dailyStats, lastDays, loadByHour, refusalsByCode, unclosedIntervals, presenceTtlHours, REASONS } from "@/shared/api";
+import { Card, CardHeader, CardTitle, Dialog, Segmented, Button, AnimatedNumber, PageHeader, Avatar, Status } from "@/shared/ui";
+import { atTime, cn, dateRu, hhmm, plural } from "@/shared/lib";
 import { cssVar } from "@/shared/config/tokens";
-import { fadeUp, stagger, spring } from "@/shared/config/motion";
+import { fadeUp, stagger, spring, lift } from "@/shared/config/motion";
 
 const axis = { stroke: cssVar("muted-foreground"), fontSize: 12, tickLine: false, axisLine: false } as const;
 const tip = { contentStyle: { background: cssVar("popover"), border: `1px solid ${cssVar("border")}`, borderRadius: 12, color: cssVar("popover-foreground"), fontSize: 13 }, cursor: { fill: cssVar("muted") } } as const;
 const anim = { animationDuration: 700, animationEasing: "ease-out" } as const;
 
 const HOW = [
-  ["Отработано", "Сумма пересечений интервалов «вход — выход» со сменой с допуском. Вход без выхода считается до текущего момента."],
+  ["Отработано", "Сумма пересечений интервалов «вход — выход» со сменой с учётом допуска. Если выход не отмечен, время считается не дальше конца смены."],
+  ["Незакрытые интервалы", "Вход без выхода дольше срока из настроек. Такие сотрудники не считаются находящимися на объекте, а их следующий проход будет записан как вход."],
   ["Опоздание", "Первый вход позже начала смены больше чем на 5 минут."],
   ["Переработка", "Последний выход позже конца смены больше чем на 5 минут."],
-  ["Отказы", "Делим на правомерные (правила, чужое лицо, повтор QR) и системные (плохой кадр, лицо не найдено) — вторые говорят о качестве самой системы."],
-  ["Нагрузка", "Успешные входы и выходы по часу события."],
+  ["Отказы", "Делятся на правомерные (нарушены правила допуска, лицо не совпало, QR уже использован) и системные (недостаточное качество кадра, лицо не найдено). Доля системных отказов показывает качество работы оборудования."],
+  ["Нагрузка", "Количество успешных входов и выходов по часам."],
 ];
 
 const Legend = ({ items }: { items: [string, string][] }) => (
@@ -34,6 +35,9 @@ export const AnalyticsPage = () => {
   const load = useMemo(() => loadByHour(db, from).filter((h) => h.hour >= 5 && h.hour <= 23), [db, from]);
   const refusals = useMemo(() => refusalsByCode(db, from).map((r) => ({ ...r, name: REASONS[r.code].message })).sort((a, b) => b.count - a.count), [db, from]);
   const maxRef = Math.max(1, ...refusals.map((r) => r.count));
+  const unclosed = useMemo(() => unclosedIntervals(db).filter((i) => i.start >= from), [db, from]);
+  const ttl = presenceTtlHours(db);
+  const who = (id: string) => db.workers.find((w) => w.id === id);
   const total = stats.reduce((s, d) => s + d.attempts, 0);
   const deny = stats.reduce((s, d) => s + d.deny, 0);
   const sys = stats.reduce((s, d) => s + d.denySystem, 0);
@@ -47,9 +51,9 @@ export const AnalyticsPage = () => {
 
   return (
     <div>
-      <PageHeader title="Аналитика" sub="Только по реальным событиям журнала"
+      <PageHeader title="Аналитика" sub="Показатели рассчитаны по событиям журнала проходов"
         actions={<><Segmented value={days} onChange={setDays} label="Период" options={[{ value: "7", label: "7 дней" }, { value: "14", label: "14 дней" }]} /><Button variant="quiet" size="sm" onClick={() => setHow(true)}><Info />Как посчитано</Button></>} />
-      <Card className="mb-3 sm:mb-4">
+      <motion.div variants={fadeUp} initial="hidden" animate="show"><Card className="mb-3 sm:mb-4">
         <dl className="grid grid-cols-2 lg:grid-cols-4">
           {kpi.map(({ label, value, fmt }, i) => (
             <div key={label} className={`flex min-w-0 flex-col gap-1 px-4 py-4 sm:px-6 sm:py-6 ${i % 2 ? "border-l border-border" : ""} ${i > 1 ? "border-t border-border lg:border-t-0" : ""} ${i === 2 ? "lg:border-l" : ""}`}>
@@ -58,7 +62,7 @@ export const AnalyticsPage = () => {
             </div>
           ))}
         </dl>
-      </Card>
+      </Card></motion.div>
       <motion.div variants={stagger(0.06)} initial="hidden" animate="show" className="grid gap-3 sm:gap-4 lg:grid-cols-2">
         <motion.div variants={fadeUp} className="min-w-0"><Card className="h-full">
           <CardHeader><CardTitle>Отработано часов по дням</CardTitle></CardHeader>
@@ -88,6 +92,20 @@ export const AnalyticsPage = () => {
           <CardHeader className="flex-wrap"><CardTitle>Опоздания и переработки</CardTitle><Legend items={[["bg-chart-5", "опоздания"], ["bg-chart-2", "переработки"]]} /></CardHeader>
           <div className="h-64 px-2 pb-3 pt-4 sm:h-72 sm:px-4"><ResponsiveContainer><BarChart data={stats} margin={{ left: -12, right: 4 }}><CartesianGrid vertical={false} stroke={cssVar("border")} /><XAxis dataKey="label" {...axis} interval="preserveStartEnd" minTickGap={8} /><YAxis {...axis} width={40} allowDecimals={false} /><Tooltip {...tip} />
             <Bar dataKey="late" name="опоздания" fill={cssVar("chart-5")} radius={[4, 4, 0, 0]} maxBarSize={20} {...anim} /><Bar dataKey="overtime" name="переработки" fill={cssVar("chart-2")} radius={[4, 4, 0, 0]} maxBarSize={20} {...anim} /></BarChart></ResponsiveContainer></div>
+        </Card></motion.div>
+        <motion.div variants={fadeUp} className="min-w-0 lg:col-span-2"><Card>
+          <CardHeader className="flex-wrap"><CardTitle>Незакрытые интервалы</CardTitle><Status tone={unclosed.length ? "warning" : "success"} dot>{unclosed.length ? `${unclosed.length} ${plural(unclosed.length, "интервал", "интервала", "интервалов")}` : "нет"}</Status></CardHeader>
+          <p className="px-4 pt-3 text-sm text-muted-foreground sm:px-6">Вход без отметки выхода дольше {ttl} {plural(ttl, "часа", "часов", "часов")}. В текущее присутствие не входит, отработанное время учтено до конца смены.</p>
+          {unclosed.length === 0 ? <div className="px-4 pb-5 pt-3 text-sm sm:px-6">Все интервалы за период закрыты выходом</div> : (
+            <motion.ul variants={stagger(0.04)} initial="hidden" animate="show" className="grid gap-2 p-4 sm:grid-cols-2 sm:p-6 lg:grid-cols-3">
+              {unclosed.map((i) => { const w = who(i.workerId); return (
+                <motion.li key={`${i.workerId}${i.start}`} variants={fadeUp} {...lift} className="flex min-w-0 items-center gap-3 rounded-md bg-muted p-3">
+                  <Avatar name={w?.fullName ?? "?"} photo={w?.photo} className="size-9 text-xs" />
+                  <div className="min-w-0"><div className="truncate text-sm font-medium">{w?.fullName ?? "Неизвестный сотрудник"}</div><div className="truncate text-xs text-muted-foreground">вход {dateRu(i.start)}, {hhmm(i.start)} · выход не отмечен</div></div>
+                </motion.li>
+              ); })}
+            </motion.ul>
+          )}
         </Card></motion.div>
       </motion.div>
       <Dialog open={how} onClose={() => setHow(false)} title="Как посчитано">

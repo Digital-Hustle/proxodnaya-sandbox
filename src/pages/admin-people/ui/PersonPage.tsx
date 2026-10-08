@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 import { ArrowLeft, Ban, CheckCircle2, QrCode, Smartphone, Trash2 } from "lucide-react";
 import { api, useDb, presenceNow, workedMs, buildIntervals, shiftFor } from "@/shared/api";
 import { Avatar, Status, Button, Card, CardHeader, CardTitle, Dialog, EmptyState, Field, Input, toast } from "@/shared/ui";
-import { AttemptRow } from "@/entities/pass";
+import { AttemptRow, directionSource } from "@/entities/pass";
 import { WorkerStatusBadge } from "@/entities/worker";
 import { dateRu, durationRu, todayKey } from "@/shared/lib";
 import { routes } from "@/shared/const/router";
@@ -45,7 +45,7 @@ export const PersonPage = () => {
         <motion.div variants={fadeUp} className="min-w-0 lg:col-span-2">
           <Card className="h-full">
             <CardHeader className="flex-wrap"><CardTitle>Проходы</CardTitle><span className="text-sm text-muted-foreground">сегодня отработано <span className="font-medium tabular-nums text-foreground">{durationRu(worked)}</span></span></CardHeader>
-            <div className="px-4 pb-2 pt-2 sm:px-6">{history.length ? <div className="divide-y divide-border">{history.map((a) => <AttemptRow key={a.id} a={a} showDate />)}</div> : <EmptyState title="Проходов не было" />}</div>
+            <div className="px-4 pb-2 pt-2 sm:px-6">{history.length ? <div className="divide-y divide-border">{history.map((a) => <AttemptRow key={a.id} a={a} showDate dirSource={directionSource(db.checkpoints.find((c) => c.id === a.checkpointId))} />)}</div> : <EmptyState title="Проходов не было" />}</div>
           </Card>
         </motion.div>
         <div className="flex min-w-0 flex-col gap-3 sm:gap-4">

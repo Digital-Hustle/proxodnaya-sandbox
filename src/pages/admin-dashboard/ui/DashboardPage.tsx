@@ -6,7 +6,7 @@ import { useDb, presenceNow, dailyStats } from "@/shared/api";
 import { Button, Card, CardHeader, CardTitle, Status, AnimatedNumber, Progress, PageHeader, type Tone } from "@/shared/ui";
 import { todayKey, plural } from "@/shared/lib";
 import { routes } from "@/shared/const/router";
-import { fadeUp, stagger } from "@/shared/config/motion";
+import { fadeUp, popIn, stagger, lift } from "@/shared/config/motion";
 import { OnSiteNow } from "@/widgets/on-site";
 import { LiveFeed } from "@/widgets/live-feed";
 
@@ -25,8 +25,8 @@ export const DashboardPage = () => {
     }
     const expired = db.workers.filter((w) => w.permitUntil < todayKey());
     if (expired.length) out.push({ tone: "danger", text: `${expired.length} ${plural(expired.length, "сотрудник", "сотрудника", "сотрудников")} с просроченным допуском — киоск их не пустит` });
-    if (today.denySystem > 2) out.push({ tone: "info", text: `Сегодня ${today.denySystem} системных отказов (качество кадра) — проверьте свет у камеры` });
-    if (today.late) out.push({ tone: "info", text: `Опоздали сегодня: ${today.late}. Подробности — в помощнике` });
+    if (today.denySystem > 2) out.push({ tone: "info", text: `Сегодня ${today.denySystem} ${plural(today.denySystem, "системный отказ", "системных отказа", "системных отказов")} из-за качества кадра — проверьте освещение у камеры` });
+    if (today.late) out.push({ tone: "info", text: `Опоздали сегодня: ${today.late}. Подробнее — в разделе «Помощник»` });
     return out;
   }, [db, presence, today]);
 
@@ -42,16 +42,16 @@ export const DashboardPage = () => {
       <PageHeader kicker={<span className="first-letter:uppercase">{todayRu()}</span>} title="Обстановка на объекте" sub="Данные обновляются в реальном времени при каждом проходе"
         actions={<Link to={routes.adminPersonNew} tabIndex={-1}><Button><UserPlus />Новый сотрудник</Button></Link>} />
 
-      <motion.div variants={fadeUp} initial="hidden" animate="show">
+      <motion.div variants={stagger(0.06)} initial="hidden" animate="show">
         {/* KPI плитками, первая — акцентная в фирменном градиенте (как плитки sberbank.ru) */}
         <dl className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           {kpi.map(({ label, value, sub }, i) => (
-            <div key={label} className={`relative flex min-w-0 flex-col gap-1 overflow-hidden rounded-xl px-4 py-4 shadow-card sm:px-6 sm:py-5 ${i === 0 ? "bg-brand-deep text-white" : "bg-card"}`}>
+            <motion.div key={label} variants={popIn} {...lift} className={`relative flex min-w-0 flex-col gap-1 overflow-hidden rounded-xl px-4 py-4 shadow-card sm:px-6 sm:py-5 ${i === 0 ? "bg-brand-deep text-white" : "bg-card"}`}>
               {i === 0 && <span aria-hidden className="absolute inset-0 bg-sheen" />}
               <dt className={`relative truncate text-sm ${i === 0 ? "text-white/85" : "text-muted-foreground"}`}>{label}</dt>
               <dd className="relative font-display text-4xl font-semibold tabular-nums tracking-hero sm:text-5xl"><AnimatedNumber value={value} /></dd>
               <dd className={`relative truncate text-xs ${i === 0 ? "text-white/80" : "text-muted-foreground"}`}>{sub}</dd>
-            </div>
+            </motion.div>
           ))}
         </dl>
       </motion.div>
@@ -80,14 +80,14 @@ export const DashboardPage = () => {
             <motion.div variants={fadeUp}>
               <Card>
                 <CardHeader><CardTitle>Рекомендации помощника</CardTitle></CardHeader>
-                <ul className="flex flex-col gap-1 p-2 sm:px-3 sm:pb-3">
+                <motion.ul variants={stagger(0.05, 0.3)} initial="hidden" animate="show" className="flex flex-col gap-1 p-2 sm:px-3 sm:pb-3">
                   {insights.map((i) => (
-                    <li key={i.text} className="flex items-start gap-3 rounded-md px-2 py-2 text-sm">
+                    <motion.li key={i.text} variants={fadeUp} className="flex items-start gap-3 rounded-md px-2 py-2 text-sm transition-colors duration-fast hover:bg-muted">
                       <span className={`mt-1.5 size-2 shrink-0 rounded-full ${{ warning: "bg-warning", danger: "bg-danger", info: "bg-info", success: "bg-success", neutral: "bg-subtle-foreground" }[i.tone]}`} />
                       <span className="min-w-0 text-pretty">{i.text}</span>
-                    </li>
+                    </motion.li>
                   ))}
-                </ul>
+                </motion.ul>
               </Card>
             </motion.div>
           )}
