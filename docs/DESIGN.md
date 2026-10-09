@@ -90,7 +90,7 @@
 
 - Сетка 4 px. Для `p-* m-* gap-* space-* inset-*` разрешены шаги: `0` (0 px), `0.5` (2 px), `1` (4 px), `1.5` (6 px), `2` (8 px), `2.5` (10 px), `3` (12 px), `3.5` (14 px), `4` (16 px), `5` (20 px), `6` (24 px), `7` (28 px), `8` (32 px), `10` (40 px), `12` (48 px), `14` (56 px), `16` (64 px), `20` (80 px), `24` (96 px).
 - Высота контролов: `h-control-xs` 32, `h-control-sm` 36, `h-control-md` 44, `h-control-lg` 52, `h-control-xl` 64 px.
-- Радиусы: `rounded-xs` 10, `rounded-sm` 14, `rounded-md` 18, `rounded-lg` 26, `rounded-xl` 34, `rounded-2xl` 44, `rounded-3xl` 56 px, `rounded-full`.
+- Радиусы: `rounded-2xs` 6, `rounded-xs` 10, `rounded-sm` 14, `rounded-md` 18, `rounded-lg` 26, `rounded-xl` 34, `rounded-2xl` 44, `rounded-3xl` 56 px, `rounded-full`.
 - Тени: `shadow-xs`, `shadow-card`, `shadow-float`, `shadow-pop`, `shadow-glow`, `shadow-scrim` (свои значения в тёмной теме).
 - Safe-area телефона: `pt-safe`, `pb-safe`.
 - Слои: `z-base` 0, `z-raised` 1, `z-sticky` 10, `z-nav` 20, `z-overlay` 50, `z-modal` 60, `z-dropdown` 65, `z-toast` 70, `z-kiosk` 80.
@@ -103,6 +103,8 @@
 | duration.fast | 0.2 с | `duration-fast` |
 | duration.base | 0.3 с | `duration-base` |
 | duration.slow | 0.45 с | `duration-slow` |
+| duration.draw | 0.42 с | `duration-draw` |
+| duration.zoom | 0.63 с | `duration-zoom` |
 | duration.loop | 2.4 с | `duration-loop` |
 | ease.out | `cubic-bezier(0.22, 1, 0.36, 1)` | `ease-out` |
 | ease.in | `cubic-bezier(0.4, 0, 1, 1)` | `ease-in` |
@@ -115,6 +117,8 @@
 | spring.sheet | bounce 0.16, visualDuration 0.42 | — |
 | spring.page | bounce 0.18, visualDuration 0.45 | — |
 | spring.bar | bounce 0.3, visualDuration 0.7 | — |
+| spring.hover | bounce 0, visualDuration 0.35 | — |
+| spring.glide | bounce 0.12, visualDuration 0.4 | — |
 | spring.counter | stiffness 110, damping 13, mass 0.9 | — |
 | swipe | offset 96, velocity 500 | — |
 | toast | durationMs 3600, errorDurationMs 6000 | — |
@@ -148,23 +152,30 @@
 - **Морф QR** — `StyledQr morph`: волна от центра за `duration.slow × 2.2` (`ease.inOut`), уходящие модули сжимаются, новые вырастают с перелётом.
 - **Полоса обновления** — только `CountdownBar` (translateX, одна линейная анимация `ease.linear` на окно). `scaleX` внутри скруглённой дорожки не использовать — WebKit рвёт клип.
 - **Плитки KPI** — первая акцентная `bg-brand-deep`, остальные `bg-card`, как на «Сводке».
-- **Календарь** — клетки `aspect-square rounded-sm`: смена `bg-surface`, сегодня `bg-accent ring-1 ring-ring`, выбранный день `bg-brand-deep text-white`, точка-статус `size-1`.
+- **Календарь** — клетки `aspect-square rounded-sm`: смена `bg-surface`, сегодня `bg-accent ring-1 ring-ring`, выбранный день — перетекающая подсветка `bg-brand-deep` (`layoutId`), `text-white`, точка-статус `size-1`.
 
 ### v4 (ADR-046): пропуск, вход, стриминг, график
-- **Пропуск v4 — по мотивам лендинга.** Приветствие — `PageHeader`. Карточка — `motion.article rounded-2xl bg-brand-deep p-4 sm:p-5 shadow-pop` + слой `bg-sheen`; шапка: `LogoMark size-10`, «Пропуск на объект» и объект (ссылка в профиль, `truncate`), пилюля зоны `bg-white/15 backdrop-blur-md max-w-2/5`. QR — `PassQr tone="brand"`: белая плашка `rounded-xl bg-white p-3 shadow-float`, дорожка `bg-white/20`, заливка `bg-white`, подписи `text-white/80`. Под карточкой — плитки `Tile` (`rounded-xl bg-card shadow-card`, цифра `font-display text-2xl tracking-hero`, подпись `text-sm text-muted-foreground`), сетка `grid-cols-2`, смена — `col-span-2` с `Progress`. Инфо-блок — `bg-muted` с иконкой на `bg-brand-deep`.
+- **Пропуск v4 — по мотивам лендинга.** Приветствие — `PageHeader`. Карточка — `motion.article rounded-2xl bg-brand-deep p-4 sm:p-5 shadow-pop` + слой `bg-sheen`; шапка: `LogoMark size-10`, «Пропуск на объект» и объект (ссылка в профиль, `truncate`), тег зоны `rounded-2xs` (на объекте — `bg-white text-brand`, вне — `bg-white/15`), `max-w-2/5`. QR — `PassQr tone="brand"`: белая плашка `rounded-xl bg-white p-3 shadow-float`, дорожка `bg-white/20`, заливка `bg-white`, подписи `text-white/80`. Под карточкой — плитки `Tile` (`rounded-xl bg-card shadow-card`, цифра `font-display text-2xl tracking-hero`, подпись `text-sm text-muted-foreground`), сетка `grid-cols-2`, смена — `col-span-2` с `Progress`. Инфо-блок — `bg-muted` с иконкой на `bg-brand-deep`.
 - **Полосы.** `Progress` и `CountdownBar` двигают заливку `translateX`, не `scaleX`. На фирменной заливке — `Progress tone="white"` / `CountdownBar fillClassName="bg-white"`.
 - **Поле кода — только `CodeInput`** (`shared/ui`): ячейки поверх одного `input` с `autocomplete="one-time-code"`, `inputMode="numeric"`. Состояния `idle | busy | error | success`: цифра выпрыгивает (`spring.pop`), ячейка заливается `bg-accent` из центра; `busy` — волна `y` по ячейкам; `error` — отскок всего поля пружиной (`x: [18, 0]`) и очистка; `success` — заливка `bg-brand-deep` по очереди и галочка. Отправка — сама по `onComplete`, без кнопки.
-- **Страница входа** — `HeaderBar` + центр `max-w-md`: пилюля-статус, заголовок Display `text-4xl/5xl tracking-hero`, панель `rounded-3xl bg-card/85 backdrop-blur-xl`. Шаги «почта → код» меняются горизонтальным сдвигом (`spring.soft`). Демо-«письмо» — уведомление `shadow-float` над панелью.
+- **Страница входа** — `HeaderBar` + центр `max-w-md`: строка-кикер `text-brand`, заголовок Display `text-4xl/5xl tracking-hero`, панель `rounded-3xl bg-card/85 backdrop-blur-xl`. Шаги «почта → код» меняются горизонтальным сдвигом (`spring.soft`). Демо-«письмо» — уведомление `shadow-float` над панелью.
 - **Стриминг ответа** — `StreamReply`: активный шаг — текст с бегущим бликом (`Shimmer`, 2 ключевые точки `backgroundPosition`, `ease.linear`, повтор), пройденный — галочка `popIn`; куски текста — `opacity + blur(6px→0)` за `duration.slow`; курсор — точка `bg-brand-gradient`, мигает `ease.inOut`. Во время ответа кнопка отправки становится «Стоп» (`Square`). Использованные инструменты остаются строкой над ответом.
-- **График недели — только `WeekPlanEditor`** (`features/plan-week`): шаблоны-пилюли, `Segmented` «Одинаково все дни / По дням». «По дням»: строка дня — `Switch` + имя (`sm:w-40`), время `w-full sm:w-auto sm:flex-1`, кнопка «на все дни» (`CopyCheck`), выходной — `ml-auto text-subtle-foreground`.
+- **График недели — только `WeekPlanEditor`** (`features/plan-week`): шаблоны — `Chip`, `Segmented` «Одинаково все дни / По дням». «По дням»: строка дня — `Switch` + имя (`sm:w-40`), время `w-full sm:w-auto sm:flex-1`, кнопка «на все дни» (`CopyCheck`), выходной — `ml-auto text-subtle-foreground`.
 - **Выбор времени.** Колонки центрируются один раз при открытии своим `scrollTop`; `scrollIntoView` внутри поповеров не использовать — он двигает страницу и сбрасывает прокрутку. `Popover` пересчитывает позицию только от прокрутки вне панели.
 - **Установка.** `InstallButton` сам решает: системный запрос или диалог-инструкция (iPhone, Mac Safari, Firefox/Samsung на Android). Кнопку не прятать на iOS.
-- **Лицо для прохода** — круг камеры `rounded-full shadow-pop`, кольцо прогресса — SVG `pathLength` в обёртке `absolute -inset-3` (без произвольных размеров), подсказки поворота меняются `AnimatePresence mode="wait"`.
+- **Лицо для прохода** — круг камеры `rounded-full shadow-pop`, кольцо прогресса — SVG `pathLength` от motion value (линейно ровно `face.scanMs`, в нуле скрыто) в обёртке `absolute -inset-3`, после скана — зелёное кольцо и `DrawnCheck`; подсказки поворота меняются `AnimatePresence mode="wait"`.
 - **Коды на терминалах** — карточка-список: иконка `bg-surface`, статус `Status` «задан / заводской», действие справа на `sm+` и под текстом на телефоне.
+
+### v4.1 (ADR-048): движение и статусы
+- **Наведение на карточку** — только `{...liftArea}` на неподвижной обёртке (`group`) + `variants={liftItem}` на содержимом, картинка — `variants={liftZoom}`, тень — `group-hover:shadow-float`. `whileHover={{ y }}` на самой карточке не использовать: у края она «дрожит».
+- **Статус — плоский тег** `Status` (`rounded-2xs h-6 px-2`, заливка тона, без рамки и точки). Пилюли «рамка + точка» не используем; кикер над заголовком — строка `text-sm font-medium text-brand`. Переключатели-фильтры — `Chip`.
+- **Выбор в списке/календаре** — одна подсветка с `layoutId` и `spring.glide`; смена содержимого — `AnimatePresence` + `AutoHeight` для высоты.
+- **Успех** — `DrawnCheck` (круг `popIn`, галочка `tween.draw`). Бесконечные пульсации-ореолы не используем.
+- **Диалог по условию** — `useDialogState()` внутри и `onClosed` у `Dialog`, иначе нет анимации закрытия.
 
 ### Чек-лист экрана (для всех новых экранов)
 1. Только токены и классы шкалы; inline `style` — для вычисляемых значений (сетка ячеек, позиция).
-2. Анимации — `spring.* / tween.* / duration.* / ease.*`, не больше 2 ключевых точек, без CSS-анимаций.
+2. Анимации — `spring.* / tween.* / duration.* / ease.*`, не больше 2 ключевых точек, без CSS-анимаций и без числовых литералов. Движение — пружины, твины — только прозрачность, цвет и прорисовка контура.
 3. Индикаторы дорожек — `TrackIndicator`; полосы — `Progress` / `CountdownBar`; коды — `CodeInput`; график — `WeekPlanEditor`.
 4. Проверено на 390 и 1440, в светлой и тёмной теме, без горизонтальной прокрутки; на iPhone — `min-h-svh`, шрифт полей ввода `text-base` (иначе iOS увеличивает страницу).
 5. Тексты — продуктовые: что произошло и что сделать дальше; ошибки сервера (`detail`) показываются как есть.

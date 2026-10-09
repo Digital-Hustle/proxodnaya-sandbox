@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router";
 import { Download, ScrollText, Search, ShieldCheck } from "lucide-react";
 import { useSession, can, roleLabel } from "@/entities/session";
 import { api, useDb, REASONS, SYSTEM_CODES, type Decision, type Attempt } from "@/shared/api";
-import { Status, Button, Card, Dialog, EmptyState, Field, Input, Select, PageHeader, LoadMore, RowsSkeleton, toast } from "@/shared/ui";
+import { Status, Button, Card, Dialog, useDialogState, EmptyState, Field, Input, Select, PageHeader, LoadMore, RowsSkeleton, toast } from "@/shared/ui";
 import { usePaged, useDebounced } from "@/shared/hooks";
 import { motion } from "motion/react";
 import { AttemptRow, DecisionBadge, decisionView, directionSource } from "@/entities/pass";
@@ -15,11 +15,12 @@ const csv = (rows: (string | number)[][]) => rows.map((r) => r.map((c) => `"${St
 /** Отметка ручного пропуска (ADR-040): ждёт / подтверждён / оспорен. Нажатие открывает подробности. */
 const ReviewMark = ({ a, onOpen }: { a: Attempt; onOpen: (a: Attempt) => void }) => (
   <button type="button" onClick={() => onOpen(a)} className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
-    {!a.review ? <Status tone="warning" dot>ждёт подтверждения</Status> : a.review.status === "CONFIRMED" ? <Status tone="success" dot>подтверждён</Status> : <Status tone="danger" dot>оспорен</Status>}
+    {!a.review ? <Status tone="warning">ждёт подтверждения</Status> : a.review.status === "CONFIRMED" ? <Status tone="success">подтверждён</Status> : <Status tone="danger">оспорен</Status>}
   </button>
 );
 
-const ReviewDialog = ({ a, who, where, onClose }: { a: Attempt; who: string; where: string; onClose: () => void }) => {
+const ReviewDialog = ({ a, who, where, onClose: onClosed }: { a: Attempt; who: string; where: string; onClose: () => void }) => {
+  const { open, close: onClose } = useDialogState();
   const role = useSession((x) => x.role);
   const userId = useSession((x) => x.userId);
   const me = useDb().admins?.find((u) => u.id === userId);
@@ -43,7 +44,7 @@ const ReviewDialog = ({ a, who, where, onClose }: { a: Attempt; who: string; whe
     if (a.review.comment) rows.push(["Комментарий", a.review.comment]);
   }
   return (
-    <Dialog open onClose={onClose} title="Ручной пропуск"
+    <Dialog open={open} onClose={onClose} onClosed={onClosed} title="Ручной пропуск"
       description={a.review ? "Проверка завершена и больше не меняется" : "Решение охранника действует сразу, но остаётся на проверке, пока его не подтвердит второй человек"}
       footer={allowed ? <><Button variant="danger-soft" disabled={busy || !comment.trim()} onClick={() => act("DISPUTED")}>Оспорить</Button><Button disabled={busy} onClick={() => act("CONFIRMED")}><ShieldCheck />Подтвердить</Button></> : <Button variant="secondary" onClick={onClose}>Закрыть</Button>}>
       <div className="flex flex-col gap-5">

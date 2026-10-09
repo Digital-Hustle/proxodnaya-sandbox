@@ -4,10 +4,8 @@ import { motion } from "motion/react";
 import { AlertTriangle, ArrowLeft, Ban, Camera, Check, CheckCircle2, Pencil, QrCode, ScanFace, Smartphone, Trash2, UserX, X } from "lucide-react";
 import { useSession, can } from "@/entities/session";
 import { api, useDb, presenceNow, workedMs, buildIntervals, shiftFor, siteOfZone, type Worker } from "@/shared/api";
-import { Avatar, Status, Button, Card, CardHeader, CardTitle, Dialog, EmptyState, Field, Input, toast } from "@/shared/ui";
+import { Avatar, Status, Button, Card, CardHeader, CardTitle, Dialog, useDialogState, EmptyState, Field, Input, Chip, toast } from "@/shared/ui";
 import { FaceReferenceCapture, type FaceCheckState } from "@/features/capture-photo";
-import { cn } from "@/shared/lib";
-import { press } from "@/shared/config/motion";
 import { DatePicker } from "@/shared/ui";
 import { AttemptRow, directionSource } from "@/entities/pass";
 import { WorkerStatusBadge } from "@/entities/worker";
@@ -32,7 +30,7 @@ const FaceCard = ({ id }: { id: string }) => {
   return (
     <Card>
       <CardHeader><CardTitle>Лицо для прохода</CardTitle>
-        {f.status === "ACTIVE" ? <Status tone="success" dot>есть</Status> : f.status === "PENDING" ? <Status tone="info" dot>на проверке</Status> : f.status === "REJECTED" ? <Status tone="danger" dot>отклонено</Status> : <Status tone="warning" dot>нет</Status>}
+        {f.status === "ACTIVE" ? <Status tone="success">есть</Status> : f.status === "PENDING" ? <Status tone="info">на проверке</Status> : f.status === "REJECTED" ? <Status tone="danger">отклонено</Status> : <Status tone="warning">нет</Status>}
       </CardHeader>
       <div className="flex flex-col gap-4 p-4 sm:p-6">
         {f.status === "PENDING" && f.pendingPhoto ? (
@@ -61,7 +59,8 @@ const FaceCard = ({ id }: { id: string }) => {
 };
 
 /** ADR-047: эталон при человеке — снимок проверяется сразу и заменяет прежний (в том числе селфи на проверке). */
-const ShootDialog = ({ w, onClose }: { w: Worker; onClose: () => void }) => {
+const ShootDialog = ({ w, onClose: onClosed }: { w: Worker; onClose: () => void }) => {
+  const { open, close: onClose } = useDialogState();
   const by = useSession((x) => x.userId);
   const [photo, setPhoto] = useState<string>();
   const [check, setCheck] = useState<FaceCheckState>({ status: "idle" });
@@ -74,7 +73,7 @@ const ShootDialog = ({ w, onClose }: { w: Worker; onClose: () => void }) => {
     catch (e) { toast.error(e instanceof Error ? e.message : "Не удалось сохранить"); setBusy(false); }
   };
   return (
-    <Dialog open onClose={onClose} title="Эталон лица" description={`${w.fullName}. Снимайте только при человеке и сверьте лицо с документом`}
+    <Dialog open={open} onClose={onClose} onClosed={onClosed} title="Эталон лица" description={`${w.fullName}. Снимайте только при человеке и сверьте лицо с документом`}
       footer={<><Button variant="quiet" onClick={onClose}>Отмена</Button><Button disabled={!ok || busy} onClick={save}><Check />Сделать эталоном</Button></>}>
       <FaceReferenceCapture value={photo} onChange={setPhoto} workerId={w.id} onCheck={setCheck} allowSkip={false} />
     </Dialog>
@@ -82,7 +81,8 @@ const ShootDialog = ({ w, onClose }: { w: Worker; onClose: () => void }) => {
 };
 
 /** Данные и допуски сотрудника. Зоны сгруппированы по объектам. */
-const EditDialog = ({ w, onClose }: { w: Worker; onClose: () => void }) => {
+const EditDialog = ({ w, onClose: onClosed }: { w: Worker; onClose: () => void }) => {
+  const { open, close: onClose } = useDialogState();
   const db = useDb();
   const by = useSession((x) => x.userId);
   const [fullName, setFullName] = useState(w.fullName);
@@ -102,7 +102,7 @@ const EditDialog = ({ w, onClose }: { w: Worker; onClose: () => void }) => {
     catch (x) { setErr(x instanceof Error ? x.message : "Не удалось сохранить"); setBusy(false); }
   };
   return (
-    <Dialog open onClose={onClose} title="Изменить карточку" description="Новые допуски действуют на терминалах сразу">
+    <Dialog open={open} onClose={onClose} onClosed={onClosed} title="Изменить карточку" description="Новые допуски действуют на терминалах сразу">
       <form onSubmit={save} className="flex flex-col gap-4">
         <Field label="ФИО"><Input value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="off" /></Field>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -117,12 +117,7 @@ const EditDialog = ({ w, onClose }: { w: Worker; onClose: () => void }) => {
               <div className="flex flex-wrap gap-2">
                 {g.zones.map((z) => {
                   const on = zoneIds.includes(z.id);
-                  return (
-                    <motion.button key={z.id} type="button" {...press} aria-pressed={on} onClick={() => setZoneIds((v) => (on ? v.filter((x) => x !== z.id) : [...v, z.id]))}
-                      className={cn("flex h-control-sm items-center gap-1.5 rounded-full border px-3.5 text-sm font-medium transition-colors duration-fast", on ? "border-success-border bg-success-soft text-success-soft-foreground" : "border-border-strong text-muted-foreground hover:text-foreground")}>
-                      {on && <Check className="size-4" />}{z.name}
-                    </motion.button>
-                  );
+                  return <Chip key={z.id} pressed={on} onClick={() => setZoneIds((v) => (on ? v.filter((x) => x !== z.id) : [...v, z.id]))}>{z.name}</Chip>;
                 })}
               </div>
             </div>

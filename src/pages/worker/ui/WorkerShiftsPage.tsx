@@ -3,9 +3,9 @@ import { useOutletContext } from "react-router";
 import { AnimatePresence, motion } from "motion/react";
 import { CalendarDays, ChevronLeft, ChevronRight, LogIn, LogOut, Timer } from "lucide-react";
 import { api, useDb, buildIntervals, workedMs, dayPasses, siteOfCheckpoint } from "@/shared/api";
-import { Button, Card, CardHeader, CardTitle, EmptyState, PageHeader, Progress, Status, type Tone } from "@/shared/ui";
+import { AutoHeight, Button, Card, CardHeader, CardTitle, EmptyState, PageHeader, Progress, Status, type Tone } from "@/shared/ui";
 import { atTime, cn, durationRu, hhmm, plural, todayKey } from "@/shared/lib";
-import { fadeUp, stagger, tween } from "@/shared/config/motion";
+import { distance, fadeUp, popIn, press, spring, stagger, tween } from "@/shared/config/motion";
 import type { WorkerCtx } from "@/widgets/worker-shell";
 
 const WEEK = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
@@ -71,19 +71,21 @@ export const WorkerShiftsPage = () => {
             </CardHeader>
             <div className="grid grid-cols-7 gap-1 px-3 pt-3 text-center text-xs text-muted-foreground sm:px-5">{WEEK.map((d) => <span key={d}>{d}</span>)}</div>
             <AnimatePresence mode="wait" initial={false}>
-              <motion.div key={`${cursor.y}-${cursor.m}`} initial={{ opacity: 0, x: dir * 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: dir * -24 }} transition={tween.base}
+              <motion.div key={`${cursor.y}-${cursor.m}`} initial={{ opacity: 0, x: dir * distance.slide }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: dir * -distance.slide, transition: tween.exit }} transition={{ ...spring.glide, opacity: tween.fast }}
                 className="grid grid-cols-7 gap-1 px-3 pb-3 pt-1 sm:px-5 sm:pb-5" role="grid" aria-label="Календарь смен">
                 {monthGrid(cursor.y, cursor.m).map((day, i) => {
                   if (!day) return <span key={`e${i}`} />;
                   const s = stateOf(day);
                   const on = day === selected;
                   return (
-                    <button key={day} type="button" onClick={() => setSelected(day)} aria-pressed={on} aria-label={`${dayTitle(day)}: ${STATE[s].label}`}
-                      className={cn("flex aspect-square flex-col items-center justify-center gap-1 rounded-sm text-sm font-medium tabular-nums outline-none transition-colors duration-fast focus-visible:ring-2 focus-visible:ring-ring",
-                        on ? "bg-brand-deep text-white" : day === today ? "bg-accent text-accent-foreground ring-1 ring-ring" : s === "off" ? "text-subtle-foreground hover:bg-surface" : "bg-surface hover:bg-surface-hover")}>
-                      {noon(day).getDate()}
-                      <span className={cn("size-1 rounded-full", s === "off" ? "bg-transparent" : on ? "bg-white" : STATE[s].dot)} />
-                    </button>
+                    <motion.button key={day} type="button" {...press} onClick={() => setSelected(day)} aria-pressed={on} aria-label={`${dayTitle(day)}: ${STATE[s].label}`}
+                      className={cn("relative flex aspect-square flex-col items-center justify-center gap-1 rounded-sm text-sm font-medium tabular-nums outline-none transition-colors duration-fast focus-visible:ring-2 focus-visible:ring-ring",
+                        on ? "text-white" : day === today ? "bg-accent text-accent-foreground ring-1 ring-ring" : s === "off" ? "text-subtle-foreground hover:bg-surface" : "bg-surface hover:bg-surface-hover")}>
+                      {/* Подсветка выбранного дня одна на календарь и перетекает между клетками (layoutId) */}
+                      {on && <motion.span layoutId="shift-day" aria-hidden className="absolute inset-0 rounded-sm bg-brand-deep" transition={spring.glide} />}
+                      <span className="relative">{noon(day).getDate()}</span>
+                      <span className={cn("relative size-1 rounded-full transition-colors duration-fast", s === "off" ? "bg-transparent" : on ? "bg-white" : STATE[s].dot)} />
+                    </motion.button>
                   );
                 })}
               </motion.div>
@@ -97,7 +99,13 @@ export const WorkerShiftsPage = () => {
         {/* Выбранный день */}
         <motion.div variants={fadeUp}>
           <Card>
-            <CardHeader><CardTitle className="first-letter:uppercase">{dayTitle(selected)}</CardTitle><Status tone={STATE[st].tone} dot>{STATE[st].label}</Status></CardHeader>
+            <CardHeader><CardTitle className="first-letter:uppercase">{dayTitle(selected)}</CardTitle>
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span key={st} variants={popIn} initial="hidden" animate="show" exit="exit"><Status tone={STATE[st].tone}>{STATE[st].label}</Status></motion.span>
+              </AnimatePresence>
+            </CardHeader>
+            <AutoHeight><AnimatePresence mode="popLayout" initial={false}>
+            <motion.div key={selected} initial={{ opacity: 0, y: distance.exit }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: tween.exit }} transition={{ ...spring.glide, opacity: tween.fast }}>
             {sh ? (
               <div className="flex flex-col gap-4 p-4 sm:p-6">
                 <div className="flex items-end justify-between gap-3">
@@ -121,6 +129,8 @@ export const WorkerShiftsPage = () => {
                 </>}
               </div>
             ) : <EmptyState icon={<CalendarDays />} title="Смены нет" text="В этот день вы не в графике" className="py-8" />}
+            </motion.div>
+            </AnimatePresence></AutoHeight>
           </Card>
         </motion.div>
 
@@ -132,18 +142,19 @@ export const WorkerShiftsPage = () => {
               <ul className="flex flex-col p-2 sm:p-3">
                 {upcoming.map((s) => (
                   <li key={s.id}>
-                    <button type="button" onClick={() => { setSelected(s.day); const d = noon(s.day); setDir(0); setCursor({ y: d.getFullYear(), m: d.getMonth() }); }}
-                      className="flex w-full min-w-0 items-center gap-3 rounded-md p-2.5 text-left outline-none transition-colors duration-fast hover:bg-surface focus-visible:ring-2 focus-visible:ring-ring">
-                      <span className={cn("flex size-11 shrink-0 flex-col items-center justify-center rounded-sm leading-none", s.day === today ? "bg-brand-deep text-white" : "bg-surface")}>
+                    <motion.button type="button" {...press} aria-pressed={s.day === selected} onClick={() => { setSelected(s.day); const d = noon(s.day); setDir(0); setCursor({ y: d.getFullYear(), m: d.getMonth() }); }}
+                      className="relative flex w-full min-w-0 items-center gap-3 rounded-md p-2.5 text-left outline-none transition-colors duration-fast hover:bg-surface focus-visible:ring-2 focus-visible:ring-ring">
+                      {s.day === selected && <motion.span layoutId="shift-upcoming" aria-hidden className="absolute inset-0 rounded-md bg-surface" transition={spring.glide} />}
+                      <span className={cn("relative flex size-11 shrink-0 flex-col items-center justify-center rounded-sm leading-none", s.day === today ? "bg-brand-deep text-white" : "bg-surface")}>
                         <span className="text-xs capitalize opacity-80">{noon(s.day).toLocaleDateString("ru-RU", { weekday: "short" })}</span>
                         <span className="mt-0.5 font-display text-lg font-semibold tabular-nums">{noon(s.day).getDate()}</span>
                       </span>
-                      <span className="min-w-0 flex-1">
+                      <span className="relative min-w-0 flex-1">
                         <span className="block text-sm font-medium tabular-nums">{s.start} – {s.end}</span>
                         <span className="block truncate text-xs text-muted-foreground">{noon(s.day).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })} · {durationRu(planMs(s.day, s.start, s.end))}</span>
                       </span>
-                      {s.day === today ? <Status tone="success" dot>Сегодня</Status> : <ChevronRight className="size-4 text-subtle-foreground" />}
-                    </button>
+                      {s.day === today ? <Status tone="success" className="relative">Сегодня</Status> : <ChevronRight className="relative size-4 text-subtle-foreground" />}
+                    </motion.button>
                   </li>
                 ))}
               </ul>

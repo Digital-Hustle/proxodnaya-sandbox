@@ -9,7 +9,7 @@ import { atTime, cn, dateRu, hhmm, plural, todayKey } from "@/shared/lib";
 
 const span = (from: string, to: string) => { const out: string[] = []; const [y, m, d] = from.split("-").map(Number); for (let x = new Date(y, m - 1, d); todayKey(x) <= to && out.length < 93; x.setDate(x.getDate() + 1)) out.push(todayKey(x)); return out; };
 import { cssVar } from "@/shared/config/tokens";
-import { fadeUp, stagger, spring, lift } from "@/shared/config/motion";
+import { fadeUp, stagger, spring } from "@/shared/config/motion";
 
 const axis = { stroke: cssVar("muted-foreground"), fontSize: 12, tickLine: false, axisLine: false } as const;
 const tip = { contentStyle: { background: cssVar("popover"), border: `1px solid ${cssVar("border")}`, borderRadius: 12, color: cssVar("popover-foreground"), fontSize: 13 }, cursor: { fill: cssVar("muted") } } as const;
@@ -107,12 +107,12 @@ export const AnalyticsPage = () => {
             <Bar dataKey="late" name="опоздания" fill={cssVar("chart-5")} radius={[4, 4, 0, 0]} maxBarSize={20} {...anim} /><Bar dataKey="overtime" name="переработки" fill={cssVar("chart-2")} radius={[4, 4, 0, 0]} maxBarSize={20} {...anim} /></BarChart></ResponsiveContainer></div>
         </Card></motion.div>
         <motion.div variants={fadeUp} className="min-w-0 lg:col-span-2"><Card>
-          <CardHeader className="flex-wrap"><CardTitle>Незакрытые интервалы</CardTitle><Status tone={unclosed.length ? "warning" : "success"} dot>{unclosed.length ? `${unclosed.length} ${plural(unclosed.length, "интервал", "интервала", "интервалов")}` : "нет"}</Status></CardHeader>
+          <CardHeader className="flex-wrap"><CardTitle>Незакрытые интервалы</CardTitle><Status tone={unclosed.length ? "warning" : "success"}>{unclosed.length ? `${unclosed.length} ${plural(unclosed.length, "интервал", "интервала", "интервалов")}` : "нет"}</Status></CardHeader>
           <p className="px-4 pt-3 text-sm text-muted-foreground sm:px-6">Вход без отметки выхода дольше {ttl} {plural(ttl, "часа", "часов", "часов")}. В текущее присутствие не входит, отработанное время учтено до конца смены.</p>
           {unclosed.length === 0 ? <div className="px-4 pb-5 pt-3 text-sm sm:px-6">Все интервалы за период закрыты выходом</div> : (
             <motion.ul variants={stagger(0.04)} initial="hidden" animate="show" className="grid gap-2 p-4 sm:grid-cols-2 sm:p-6 lg:grid-cols-3">
               {unclosed.map((i) => { const w = who(i.workerId); return (
-                <motion.li key={`${i.workerId}${i.start}`} variants={fadeUp} {...lift} className="flex min-w-0 items-center gap-3 rounded-md bg-muted p-3">
+                <motion.li key={`${i.workerId}${i.start}`} variants={fadeUp} className="flex min-w-0 items-center gap-3 rounded-md bg-muted p-3">
                   <Avatar name={w?.fullName ?? "?"} photo={w?.photo} className="size-9 text-xs" />
                   <div className="min-w-0"><div className="truncate text-sm font-medium">{w?.fullName ?? "Неизвестный сотрудник"}</div><div className="truncate text-xs text-muted-foreground">вход {dateRu(i.start)}, {hhmm(i.start)} · выход не отмечен</div></div>
                 </motion.li>

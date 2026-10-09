@@ -2,11 +2,11 @@ import { useMemo } from "react";
 import { Link } from "react-router";
 import { motion } from "motion/react";
 import { ArrowRight, ScanLine, ChevronRight, ScrollText, BarChart3, Sparkles, ShieldCheck } from "lucide-react";
-import { Logo, LogoMark, Status, Button, AnimatedNumber, HeaderBar, PreferencesButton, StyledQr, BrandConicFill } from "@/shared/ui";
+import { Logo, LogoMark, Button, AnimatedNumber, HeaderBar, PreferencesButton, StyledQr, BrandConicFill } from "@/shared/ui";
 import { DEMO_INVITES, useDb, presenceNow, dailyStats } from "@/shared/api";
 import { todayKey, cn } from "@/shared/lib";
 import { routes, absoluteUrl } from "@/shared/const/router";
-import { fadeUp, stagger, lift, spring, inView, tween, duration } from "@/shared/config/motion";
+import { fadeUp, stagger, liftArea, liftItem, liftZoom, spring, inView, tween, duration } from "@/shared/config/motion";
 
 const art = (name: string) => `${import.meta.env.BASE_URL}art/${name}.webp`;
 
@@ -29,7 +29,7 @@ const STORIES = [
 const HeroCards = () => (
   <div className="relative mx-auto mt-10 h-80 w-full max-w-sm sm:mt-14 sm:h-96 sm:max-w-xl">
     <motion.div initial={{ opacity: 0, y: 40, rotate: 0 }} animate={{ opacity: 1, y: 0, rotate: 5 }} transition={{ ...spring.soft, opacity: tween.base }}
-      whileHover={{ rotate: 2, y: -6 }}
+      whileHover={{ rotate: 2, y: -6, transition: spring.hover }}
       className="absolute right-2 top-0 w-56 overflow-hidden rounded-2xl bg-brand-deep p-4 text-white shadow-pop sm:right-6 sm:w-72 sm:p-5">
       <div aria-hidden className="absolute inset-0 bg-sheen" />
       <div className="relative flex items-center gap-2.5">
@@ -40,7 +40,7 @@ const HeroCards = () => (
       <div className="relative mt-3 flex items-center justify-between text-xs text-white/80"><span>Новый код через 24 с</span><ShieldCheck className="size-4" /></div>
     </motion.div>
     <motion.div initial={{ opacity: 0, y: 40, rotate: 0 }} animate={{ opacity: 1, y: 0, rotate: -6 }} transition={{ ...spring.soft, opacity: tween.base, delay: duration.instant }}
-      whileHover={{ rotate: -3, y: -6 }}
+      whileHover={{ rotate: -3, y: -6, transition: spring.hover }}
       className="absolute bottom-2 left-3 flex w-44 flex-col overflow-hidden rounded-2xl bg-card shadow-pop sm:bottom-0 sm:left-4 sm:w-60">
       <div className="flex-1 bg-linear-to-br from-sber-lime/60 via-sber-mint/30 to-transparent p-5 pb-10">
         <p className="font-display text-lg font-semibold leading-tight tracking-display text-foreground sm:text-xl">Проход по QR-коду и сверке лица</p>
@@ -78,7 +78,7 @@ export const HomePage = () => {
 
       <main className="relative mx-auto max-w-6xl px-4 pb-10 sm:px-6">
         <motion.section variants={stagger(0.07)} initial="hidden" animate="show" className="flex flex-col items-center pt-12 text-center sm:pt-20">
-          <motion.div variants={fadeUp}><Status tone="success" dot className="h-7 bg-card/70 px-3 backdrop-blur-md">Кейс «Проходная» · демонстрационный стенд</Status></motion.div>
+          <motion.p variants={fadeUp} className="text-sm font-medium text-brand">Кейс «Проходная» — демонстрационный стенд</motion.p>
           <motion.h1 variants={fadeUp} className="mt-6 max-w-5xl text-balance font-display text-4xl font-semibold leading-none tracking-hero sm:text-5xl lg:text-6xl">
             Контроль доступа на строительный объект
           </motion.h1>
@@ -98,13 +98,13 @@ export const HomePage = () => {
           className="scrollbar-none relative z-raised -mx-4 mt-8 flex gap-4 overflow-x-auto px-4 pb-4 pt-4 sm:mx-0 sm:mt-12 sm:justify-center sm:gap-6 sm:px-2">
           {STORIES.map(({ to, label, img, icon: Icon, tone }) => (
             <motion.div key={to} variants={fadeUp} className="w-20 shrink-0">
-              <motion.div {...lift}>
-                <Link to={to} className="group flex flex-col gap-2 text-left outline-none">
-                  <span className={cn("relative flex size-20 items-center justify-center overflow-hidden rounded-xl shadow-card ring-2 ring-white/70 transition-shadow duration-base group-hover:shadow-float group-focus-visible:ring-ring dark:ring-white/10", tone !== "conic" && tone)}>
+              <motion.div {...liftArea} className="group">
+                <Link to={to} className="flex flex-col gap-2 text-left outline-none">
+                  <motion.span variants={liftItem} className={cn("relative flex size-20 items-center justify-center overflow-hidden rounded-xl shadow-card ring-2 ring-white/70 transition-shadow duration-base group-hover:shadow-float group-focus-visible:ring-ring dark:ring-white/10", tone !== "conic" && tone)}>
                     {img ? <img src={img} alt="" className="size-full object-cover" loading="lazy" /> : Icon && (<>
                       {tone === "conic" ? <BrandConicFill /> : <span aria-hidden className="absolute inset-0 bg-sheen" />}<Icon className="relative size-8 text-white drop-shadow-sm" />
                     </>)}
-                  </span>
+                  </motion.span>
                   <span className="text-sm font-semibold leading-tight">{label}</span>
                 </Link>
               </motion.div>
@@ -127,9 +127,10 @@ export const HomePage = () => {
           <motion.div variants={stagger(0.08)} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.15 }} className="grid gap-3 sm:gap-4 md:grid-cols-3">
             {ZONES.map(({ to, img, title, text, device }) => (
               <motion.div key={to} variants={fadeUp}>
-                <motion.div {...lift} className="h-full">
-                  <Link to={to} className="group flex h-full flex-col gap-4 rounded-2xl bg-card p-2 pb-4 shadow-card outline-none transition-shadow duration-base hover:shadow-float focus-visible:ring-2 focus-visible:ring-ring">
-                    <span className="block aspect-4/3 overflow-hidden rounded-xl"><img src={img} alt="" loading="lazy" className="size-full object-cover transition-transform duration-slow group-hover:scale-105" /></span>
+                <motion.div {...liftArea} className="group h-full">
+                  <motion.div variants={liftItem} className="h-full rounded-2xl shadow-card transition-shadow duration-slow group-hover:shadow-float">
+                  <Link to={to} className="flex h-full flex-col gap-4 rounded-2xl bg-card p-2 pb-4 outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <span className="block aspect-4/3 overflow-hidden rounded-xl"><motion.img variants={liftZoom} src={img} alt="" loading="lazy" className="size-full object-cover" /></span>
                     <div className="flex flex-1 flex-col gap-1.5 px-3">
                       <h3 className="font-display text-xl font-semibold tracking-display">{title}</h3>
                       <p className="text-pretty text-sm text-muted-foreground">{text}</p>
@@ -139,6 +140,7 @@ export const HomePage = () => {
                       <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface text-foreground transition-colors duration-fast group-hover:bg-primary group-hover:text-primary-foreground"><ArrowRight className="size-4" /></span>
                     </div>
                   </Link>
+                  </motion.div>
                 </motion.div>
               </motion.div>
             ))}

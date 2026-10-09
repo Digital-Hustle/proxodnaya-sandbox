@@ -41,7 +41,7 @@ export const DemoPanel = ({ checkpointId, open, onClose, onScan, onManual }: Pro
                     <span className="block truncate text-sm font-medium">{w.fullName}</span>
                     <span className="block truncate text-xs text-muted-foreground">{sh ? `смена ${sh.start}–${sh.end}` : "нет смены"}</span>
                   </span>
-                  <Status tone={repeat ? "warning" : next === "OUT" ? "success" : "neutral"} dot>{repeat ? "повтор" : next === "OUT" ? "выход" : "вход"}</Status>
+                  <Status tone={repeat ? "warning" : next === "OUT" ? "success" : "neutral"}>{repeat ? "повтор" : next === "OUT" ? "выход" : "вход"}</Status>
                 </motion.button>
               );
             })}

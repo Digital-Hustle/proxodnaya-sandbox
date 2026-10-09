@@ -6,7 +6,7 @@ import { useDb, presenceNow, dailyStats } from "@/shared/api";
 import { Button, Card, CardHeader, CardTitle, Status, AnimatedNumber, Progress, PageHeader, type Tone } from "@/shared/ui";
 import { todayKey, plural } from "@/shared/lib";
 import { routes } from "@/shared/const/router";
-import { fadeUp, popIn, stagger, lift } from "@/shared/config/motion";
+import { fadeUp, popIn, stagger } from "@/shared/config/motion";
 import { OnSiteNow } from "@/widgets/on-site";
 import { LiveFeed } from "@/widgets/live-feed";
 
@@ -55,7 +55,7 @@ export const DashboardPage = () => {
         {/* KPI плитками, первая — акцентная в фирменном градиенте (как плитки sberbank.ru) */}
         <dl className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           {kpi.map(({ label, value, sub }, i) => (
-            <motion.div key={label} variants={popIn} {...lift} className={`relative flex min-w-0 flex-col gap-1 overflow-hidden rounded-xl px-4 py-4 shadow-card sm:px-6 sm:py-5 ${i === 0 ? "bg-brand-deep text-white" : "bg-card"}`}>
+            <motion.div key={label} variants={popIn} className={`relative flex min-w-0 flex-col gap-1 overflow-hidden rounded-xl px-4 py-4 shadow-card sm:px-6 sm:py-5 ${i === 0 ? "bg-brand-deep text-white" : "bg-card"}`}>
               {i === 0 && <span aria-hidden className="absolute inset-0 bg-sheen" />}
               <dt className={`relative truncate text-sm ${i === 0 ? "text-white/85" : "text-muted-foreground"}`}>{label}</dt>
               <dd className="relative font-display text-4xl font-semibold tabular-nums tracking-hero sm:text-5xl"><AnimatedNumber value={value} /></dd>
@@ -68,7 +68,7 @@ export const DashboardPage = () => {
       <motion.div variants={stagger(0.06, 0.1)} initial="hidden" animate="show" className="mt-3 grid gap-3 sm:mt-4 sm:gap-4 lg:grid-cols-5">
         <motion.div variants={fadeUp} className="min-w-0 lg:col-span-3">
           <Card className="h-full">
-            <CardHeader><CardTitle>Сейчас на объекте</CardTitle><Status tone="success" dot>{presence.length}</Status></CardHeader>
+            <CardHeader><CardTitle>Сейчас на объекте</CardTitle><Status tone="success">{presence.length}</Status></CardHeader>
             <div className="grid gap-3 px-4 pt-4 sm:grid-cols-3 sm:px-6">
               {zonesShown.map(({ z, n }) => {
                 const k = n / Math.max(1, z.capacity);

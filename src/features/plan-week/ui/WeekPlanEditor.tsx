@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { CopyCheck } from "lucide-react";
-import { Field, Segmented, Switch, TimePicker } from "@/shared/ui";
+import { Chip, Field, Segmented, Switch, TimePicker } from "@/shared/ui";
 import { cn } from "@/shared/lib";
 import { press, fadeUp, spring, tween } from "@/shared/config/motion";
 import { TEMPLATES, WEEKDAYS, WEEKDAYS_FULL, planUniform, type WeekPlan } from "../model/plan";
@@ -21,8 +21,7 @@ export const WeekPlanEditor = ({ value, onChange }: { value: WeekPlan; onChange:
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap gap-2">
         {TEMPLATES.map((t) => (
-          <motion.button key={t.label} type="button" {...press} onClick={() => { const p = t.plan(); onChange(p); setMode(planUniform(p) ? "same" : "days"); }}
-            className="rounded-full border border-border px-3 py-1.5 text-sm transition-colors duration-fast hover:bg-surface">{t.label}</motion.button>
+          <Chip key={t.label} onClick={() => { const p = t.plan(); onChange(p); setMode(planUniform(p) ? "same" : "days"); }}>{t.label}</Chip>
         ))}
       </div>
       <Segmented block label="Как задать время" value={mode} onChange={(m) => { if (m === "same") setAll({ start: first.start, end: first.end }); setMode(m); }}
