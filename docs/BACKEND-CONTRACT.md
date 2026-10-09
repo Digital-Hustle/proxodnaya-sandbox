@@ -1,6 +1,6 @@
 # Что фронтенд ждёт от бэкенда («обратный сваггер»)
 
-Статус: черновик к синку по контракту · Источник: моки песочницы `src/shared/api/mock/*` (ADR-037…046) · Основной контракт — `proxodnaya/docs/API.md` в `Digital-Hustle/sber-hack`.
+Статус: черновик к синку по контракту · Источник: моки песочницы `src/shared/api/mock/*` (ADR-037…047) · Основной контракт — `proxodnaya/docs/API.md` в `Digital-Hustle/sber-hack`.
 
 Здесь перечислено всё, что сейчас замокано в браузере, и как это должно выглядеть на сервере, чтобы фронт переключился с моков без переделки экранов. Для каждой функции мока указан эндпоинт, тело запроса (`*Rq`), ответ (`*Rs`) и ошибки. Если эндпоинт уже есть в API.md — помечено **[есть]**, если его нужно добавить или поменять — **[новый]** / **[изменить]**.
 
@@ -72,11 +72,15 @@
 |---|---|---|
 | `enrollFace` | `POST /people/api/v1/worker/me/face` (device-токен) | `{ at, signature, photo (jpeg base64, ≤ 480px), liveness: { frames: [...] } }` → `{ status: "PENDING" }` |
 | `reviewFace` | `POST /people/api/v1/workers/{id}/face/review` (SECURITY_OFFICER, ADMIN) | `{ approve: boolean, comment? }` → `FaceRefRs` |
-| при оформлении | `POST /people/api/v1/workers/{id}/face` **[есть]** | снимок HR → эталон сразу `ACTIVE`, `source: HR` |
+| при оформлении | `POST /people/api/v1/workers/{id}/face` **[есть]** | снимок HR → эталон сразу `ACTIVE`, `source: HR`; перед этим — та же проверка, что `checkFacePhoto` (ADR-047), плохой снимок → `422` с `code` из `FaceCheckCode` |
+| `checkFacePhoto` | `POST /people/api/v1/workers/face/check` **[новый]** (ADMIN, SECURITY_OFFICER, MANAGER) | `{ photo, exceptWorkerId? }` → `FaceCheckRs` — проверка **до** сохранения карточки, ответ ≤ 1 с |
+| `setWorkerFace` | `PUT /people/api/v1/workers/{id}/face` **[новый]** | переснять эталон из карточки; та же проверка, заменяет `ACTIVE` и `PENDING` |
 
 - `FaceRefRs = { status: NONE|PENDING|ACTIVE|REJECTED, source?: HR|PHONE|KIOSK, at?, by?, comment? }` — отдаётся в карточке сотрудника и в `/worker/me`.
 - Подпись: `signature = ECDSA-P256-SHA256("face|workerId|deviceId|at")` ключом телефона; `|now − at| ≤ 5 мин`. Чужой или отвязанный телефон → `403 DEVICE_UNKNOWN`.
 - Живость проверяет `face` (`/internal/face/verify`), отказ — `LIVENESS_FAILED` / `FACE_LOW_QUALITY` с понятным `detail`.
+- `FaceCheckRs = { ok, code: OK|NO_FACE|TOO_DARK|TOO_BRIGHT|BLURRY|TOO_SMALL|DUPLICATE, message, hint, score (0..1), duplicate?: { workerId, fullName } }`. `message` и `hint` показываются как есть. Делает `face`: YuNet — ровно одно лицо, размер ≥ 120 px, поворот, свет и резкость; SFace — косинус со всеми действующими эталонами (`DUPLICATE` при сходстве выше порога 1:N, `faceThreshold + FACE_FIRST_MARGIN`).
+- С телефона (`/worker/me/face`) плохое качество → `422` сразу (человек переснимет), а `DUPLICATE` не блокирует: эталон уходит в `PENDING` с `dupOf`, проверяющий видит «похоже на эталон …».
 - Эталон с телефона **не включается сам**: до подтверждения человеком `status = PENDING`, на терминале «QR + лицо» сотрудник получает `FACE_NOT_ENROLLED` и проходит через охранника.
 
 ## 5. Терминал (киоск)
@@ -120,9 +124,28 @@
 | `queryShiftRows` | `GET /shift/api/v1/shifts/day?day&q&filter&cursor` **[новый]** | план/факт на день, `filter = all|planned|unplanned`: `{ worker, shift?, intervals: [{ start, end? }] }` |
 | `upsertShift` / `deleteShift` | `POST|PATCH|DELETE /shift/api/v1/shifts` **[есть]** | |
 | `assignSchedule` | `POST /shift/api/v1/shifts/bulk` **[изменить]** | `{ workerIds, from, to, days: [{ weekday: 0..6 (0 = Пн), start, end }] }` → `{ created }`. **Своё время на каждый день недели** (ADR-046); смены в эти дни заменяются; `start < end`, иначе `422`, «Конец смены должен быть позже начала» |
-| `updateCheckpoint` | `PATCH /people/api/v1/checkpoints/{id}` | `{ mode: AUTO|IN|OUT }` |
+| `updateCheckpoint` | `PATCH /people/api/v1/checkpoints/{id}` | `{ mode: AUTO|IN|OUT }` (SECURITY_OFFICER и ADMIN; имя и зону меняет только ADMIN — §6.1) |
+| `editWorker` | `PATCH /people/api/v1/workers/{id}` **[есть]** | `{ fullName?, position?, contractor?, zoneIds? }`; `zoneIds` не пустой (`422`, «Оставьте хотя бы одну зону допуска»). ADMIN, SECURITY_OFFICER, MANAGER |
+| `deleteWorker` | `DELETE /people/api/v1/workers/{id}` **[есть]** | только ADMIN; на объекте → `409 WORKER_INSIDE` («Сотрудник сейчас на объекте — сначала отметьте выход»); отзывает устройства, снимает будущие смены, удаляет эталон и эмбеддинги (NFR-10); журнал и табель остаются |
 | `updateSettings` | `PUT /access/api/v1/settings` **[есть]** | все поля `Settings` (порог лица, окна, `repeatScanCooldownSec`, `presenceTtlHours`, `terminalMode`, `terminalScope`, `offlinePolicy`, `offlineMaxHours`, `offlineAfterExpiry`, `offlineCheckShift`, `offlineUnknownDevice`) |
 | аналитика | `GET /shift/api/v1/analytics/*` **[есть]** | сейчас считается в `mock/derived.ts`: присутствие, интервалы, часы, опоздания, отказы по кодам |
+
+### 6.1. Объекты, зоны, проходные (ADR-047) **[изменить: PATCH, DELETE]**
+В API.md (PPL-06) есть только `GET|POST`. Для раздела «Объекты» нужны правка и удаление. Читают ADMIN, MANAGER, SECURITY_OFFICER, GUARD; меняет только ADMIN (`403`, «Менять объекты, зоны и проходные может только администратор»).
+
+| Мок | Эндпоинт | Rq → Rs |
+|---|---|---|
+| `createSite` / `updateSite` | `POST /people/api/v1/sites`, `PATCH /sites/{id}` | `{ name, address? }` → `SiteRs = { id, name, address? }` |
+| `deleteSite` | `DELETE /people/api/v1/sites/{id}` | `204`; есть зоны → `409 SITE_NOT_EMPTY` («В объекте N зон — перенесите или удалите их») |
+| `createZone` / `updateZone` | `POST /people/api/v1/zones`, `PATCH /zones/{id}` | `{ siteId, name, capacity }` → `ZoneRs = { id, siteId, name, capacity }`; `siteId` в PATCH — перенос в другой объект |
+| `deleteZone` | `DELETE /people/api/v1/zones/{id}` | `204` + `{ permitsRemoved }`; есть проходные → `409 ZONE_HAS_CHECKPOINTS`; внутри люди → `409 ZONE_NOT_EMPTY`. Допуск в зону снимается у всех (`WorkerUpdated` в `people.worker.v1`) |
+| `createCheckpoint` / `editCheckpoint` | `POST /people/api/v1/checkpoints`, `PATCH /checkpoints/{id}` | `{ zoneId, name, mode? }` → `CheckpointRs = { id, zoneId, siteId, name, mode }` |
+| `deleteCheckpoint` | `DELETE /people/api/v1/checkpoints/{id}` | `204` + `{ kiosksUnpaired }`. Мягкое удаление: имя остаётся для журнала (`GET /attempts` отдаёт `checkpointName`), привязанные киоски получают новый код сопряжения |
+| подсказки до удаления | `GET /people/api/v1/zones/{id}/usage`, `GET /checkpoints/{id}/kiosks` | `{ checkpoints, permits, inside }`, `{ items: [{ id, name }] }` |
+
+- Уникальность названий без учёта регистра: объект — в базе, зона — в объекте, проходная — в базе → `409 NAME_TAKEN`. Длина 2–80, вместимость 1–100 000 → `422`.
+- Каждое изменение — запись в журнале доступа: `GET /people/api/v1/staff/access-log` → `{ action: OBJECT|WORKER, detail, by, ts }`.
+- Терминалы получают новую структуру со следующим снимком допусков (ADR-042): удалённая проходная → киоск сразу показывает код сопряжения.
 
 Песочница-only (в продукте нет): `virtualPassQr`, `forgePassQr` (демо-пульт), `seedScale` (+400 человек), `demoFace`.
 

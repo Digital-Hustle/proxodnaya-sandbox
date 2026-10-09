@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Link, Navigate, Outlet, useLocation, useNavigate } from "react-router";
 import { motion } from "motion/react";
-import { LayoutGrid, Users, ScrollText, CalendarClock, BarChart3, Sparkles, Settings, MoreHorizontal, ScanLine, Home, ChevronRight, MonitorSmartphone, UserCog, Lock, KeyRound, LogOut, Repeat2 } from "lucide-react";
+import { LayoutGrid, Users, ScrollText, CalendarClock, BarChart3, Sparkles, Settings, MoreHorizontal, ScanLine, Home, ChevronRight, MonitorSmartphone, UserCog, Lock, KeyRound, LogOut, Repeat2, Building2 } from "lucide-react";
 import { useSession, can, roleLabel, type Perm } from "@/entities/session";
 import { AssistantFab } from "@/features/ask-assistant";
 import { Avatar, Status, toast, EmptyState, Logo, ThemePicker, PreferencesButton, InstallButton, OfflineBanner, Dialog, Button, HeaderBar, NavTrack, TrackIndicator, useTrackIndicator } from "@/shared/ui";
@@ -17,6 +17,7 @@ const NAV: { to: string; label: string; short: string; icon: typeof Users; perm:
   { to: routes.adminShifts, label: "Смены", short: "Смены", icon: CalendarClock, perm: "shifts" },
   { to: routes.adminAnalytics, label: "Аналитика", short: "Аналитика", icon: BarChart3, perm: "analytics" },
   { to: routes.adminAssistant, label: "Помощник", short: "Помощник", icon: Sparkles, perm: "assistant" },
+  { to: routes.adminObjects, label: "Объекты", short: "Объекты", icon: Building2, perm: "objects" },
   { to: routes.adminTerminals, label: "Терминалы", short: "Терминалы", icon: MonitorSmartphone, perm: "terminals" },
   { to: routes.adminAccess, label: "Доступ", short: "Доступ", icon: KeyRound, perm: "access" },
   { to: routes.adminSettings, label: "Настройки", short: "Настройки", icon: Settings, perm: "settings" },

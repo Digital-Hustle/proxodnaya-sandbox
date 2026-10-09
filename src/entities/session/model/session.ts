@@ -2,15 +2,15 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Role } from "@/shared/api";
 
-export type Perm = "dashboard" | "people" | "journal" | "shifts" | "analytics" | "assistant" | "terminals" | "settings" | "reviewManual" | "access";
+export type Perm = "dashboard" | "people" | "journal" | "shifts" | "analytics" | "assistant" | "terminals" | "settings" | "reviewManual" | "access" | "objects" | "manageObjects";
 
 export const PERMS: { id: Perm; label: string }[] = [
   { id: "dashboard", label: "Обстановка" }, { id: "people", label: "Люди" }, { id: "journal", label: "Журнал" }, { id: "shifts", label: "Смены" },
-  { id: "analytics", label: "Аналитика" }, { id: "assistant", label: "Помощник" }, { id: "terminals", label: "Терминалы" }, { id: "settings", label: "Настройки" }, { id: "reviewManual", label: "Проверка ручных" }, { id: "access", label: "Выдача ролей" },
+  { id: "analytics", label: "Аналитика" }, { id: "assistant", label: "Помощник" }, { id: "objects", label: "Объекты" }, { id: "terminals", label: "Терминалы" }, { id: "settings", label: "Настройки" }, { id: "reviewManual", label: "Проверка ручных" }, { id: "access", label: "Выдача ролей" }, { id: "manageObjects", label: "Полное управление" },
 ];
 
 export const ROLES: { id: Role; label: string; text: string }[] = [
-  { id: "ADMIN", label: "Администратор", text: "Все разделы, роли и настройки системы" },
+  { id: "ADMIN", label: "Администратор", text: "Все разделы, роли, настройки и полное управление объектами, зонами, проходными и людьми" },
   { id: "SECURITY_OFFICER", label: "Служба безопасности", text: "Журнал, инциденты, терминалы и правила прохода" },
   { id: "MANAGER", label: "Руководитель участка", text: "Люди, смены, табель и помощник" },
   { id: "INSTALLER", label: "Инженер терминалов", text: "Подключение и обслуживание киосков, без доступа к людям" },
@@ -19,10 +19,10 @@ export const ROLES: { id: Role; label: string; text: string }[] = [
 
 const MATRIX: Record<Role, Perm[]> = {
   ADMIN: PERMS.map((p) => p.id),
-  SECURITY_OFFICER: ["dashboard", "people", "journal", "analytics", "terminals", "settings", "reviewManual"],
-  MANAGER: ["dashboard", "people", "journal", "shifts", "analytics", "assistant"],
+  SECURITY_OFFICER: ["dashboard", "people", "journal", "analytics", "objects", "terminals", "settings", "reviewManual"],
+  MANAGER: ["dashboard", "people", "journal", "shifts", "analytics", "assistant", "objects"],
   INSTALLER: ["dashboard", "terminals"],
-  GUARD: ["dashboard", "journal"],
+  GUARD: ["dashboard", "journal", "objects"],
 };
 
 /** Проверка права роли. В песочнице — только интерфейс; в продукте та же матрица проверяется на сервере (FR-60). */

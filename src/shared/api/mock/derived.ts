@@ -6,7 +6,7 @@ import { atTime, dayKey, todayKey } from "../../lib/time";
 import { SYSTEM_CODES } from "./reasons";
 
 const isPass = (a: Attempt) => a.decision === "ALLOW" || a.decision === "MANUAL";
-const zoneOf = (db: Db, checkpointId: string) => db.checkpoints.find((c) => c.id === checkpointId)?.zoneId ?? "z_a";
+const zoneOf = (db: Db, checkpointId: string) => db.checkpoints.find((c) => c.id === checkpointId)?.zoneId ?? db.removedCheckpoints?.[checkpointId]?.zoneId ?? "z_a";
 
 export const buildIntervals = (db: Db): Interval[] => {
   const open = new Map<string, Interval>();
@@ -97,11 +97,13 @@ export const unclosedIntervals = (db: Db, now = Date.now()) => {
 };
 
 // ——— ADR-044: объекты ———
-export const sitesOf = (db: Db): Site[] => db.sites?.length ? db.sites : DEFAULT_SITES;
+const NO_SITE: Site = { id: "", name: "Без объекта" };
+/** Нет поля — база до ADR-044, берём объекты по умолчанию. Пустой список — администратор удалил все объекты (ADR-047). */
+export const sitesOf = (db: Db): Site[] => db.sites ?? DEFAULT_SITES;
 export const siteOfZone = (db: Db, zoneId: string): Site => {
   const sites = sitesOf(db);
   const id = db.zones.find((z) => z.id === zoneId)?.siteId ?? DEFAULT_ZONE_SITE[zoneId];
-  return sites.find((s) => s.id === id) ?? sites[0];
+  return sites.find((s) => s.id === id) ?? sites[0] ?? NO_SITE;
 };
 export const siteOfCheckpoint = (db: Db, checkpointId: string) => siteOfZone(db, zoneOf(db, checkpointId));
 
