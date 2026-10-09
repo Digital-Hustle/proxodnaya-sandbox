@@ -17,6 +17,7 @@ export const routes = {
   adminAnalytics: "/admin/analytics",
   adminAssistant: "/admin/assistant",
   adminSettings: "/admin/settings",
+  adminObjects: "/admin/objects",
   adminTerminals: "/admin/terminals",
   adminAccess: "/admin/access",
 } as const;

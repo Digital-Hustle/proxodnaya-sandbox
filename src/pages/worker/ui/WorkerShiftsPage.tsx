@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useOutletContext } from "react-router";
 import { AnimatePresence, motion } from "motion/react";
 import { CalendarDays, ChevronLeft, ChevronRight, LogIn, LogOut, Timer } from "lucide-react";
-import { useDb, buildIntervals, workedMs, dayPasses, siteOfCheckpoint } from "@/shared/api";
+import { api, useDb, buildIntervals, workedMs, dayPasses, siteOfCheckpoint } from "@/shared/api";
 import { Button, Card, CardHeader, CardTitle, EmptyState, PageHeader, Progress, Status, type Tone } from "@/shared/ui";
 import { atTime, cn, durationRu, hhmm, plural, todayKey } from "@/shared/lib";
 import { fadeUp, stagger, tween } from "@/shared/config/motion";
@@ -117,7 +117,7 @@ export const WorkerShiftsPage = () => {
                       </div>
                     ))}
                   </dl>
-                  {passes.checkpointId && <p className="text-xs text-muted-foreground">{siteOfCheckpoint(db, passes.checkpointId).name} · {db.checkpoints.find((c) => c.id === passes.checkpointId)?.name}</p>}
+                  {passes.checkpointId && <p className="text-xs text-muted-foreground">{siteOfCheckpoint(db, passes.checkpointId).name} · {api.checkpointName(db, passes.checkpointId)}</p>}
                 </>}
               </div>
             ) : <EmptyState icon={<CalendarDays />} title="Смены нет" text="В этот день вы не в графике" className="py-8" />}

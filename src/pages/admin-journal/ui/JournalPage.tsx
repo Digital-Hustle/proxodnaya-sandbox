@@ -68,7 +68,7 @@ export const JournalPage = () => {
   const dq = useDebounced(q);
   const names = useMemo(() => new Map(db.workers.map((w) => [w.id, w.fullName])), [db.workers]);
   const name = (id?: string) => (id && names.get(id)) || "Неизвестный пропуск";
-  const cp = (id: string) => db.checkpoints.find((c) => c.id === id)?.name ?? id;
+  const cp = (id: string) => api.checkpointName(db, id);
   const src = (id: string) => directionSource(db.checkpoints.find((c) => c.id === id));
 
   const checkpoint = sp.get("cp") ?? "";

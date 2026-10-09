@@ -19,12 +19,13 @@ const shifts = () => import("@/pages/admin-shifts");
 const analytics = () => import("@/pages/admin-analytics");
 const assistant = () => import("@/pages/admin-assistant");
 const settings = () => import("@/pages/admin-settings");
+const objects = () => import("@/pages/admin-objects");
 const terminals = () => import("@/pages/admin-terminals");
 const access = () => import("@/pages/admin-access");
 
 /** Фоновая предзагрузка всех страниц после первого экрана: дальнейшие переходы мгновенные. */
 export const prefetchRoutes = () => {
-  const run = () => [kiosk, worker, dashboard, people, journal, shifts, analytics, assistant, settings, terminals, access].forEach((f) => { f().catch(() => {}); });
+  const run = () => [kiosk, worker, dashboard, people, journal, shifts, analytics, assistant, settings, objects, terminals, access].forEach((f) => { f().catch(() => {}); });
   if ("requestIdleCallback" in window) requestIdleCallback(run); else setTimeout(run, 1);
 };
 
@@ -88,6 +89,7 @@ export const router = createHashRouter([
         { path: "analytics", lazy: async () => ({ Component: (await analytics()).AnalyticsPage }) },
         { path: "assistant", lazy: async () => ({ Component: (await assistant()).AssistantPage }) },
         { path: "settings", lazy: async () => ({ Component: (await settings()).SettingsPage }) },
+        { path: "objects", lazy: async () => ({ Component: (await objects()).ObjectsPage }) },
         { path: "terminals", lazy: async () => ({ Component: (await terminals()).TerminalsPage }) },
         { path: "access", lazy: async () => ({ Component: (await access()).AccessPage }) },
       ],

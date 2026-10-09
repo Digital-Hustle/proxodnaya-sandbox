@@ -54,7 +54,7 @@ const EditDialog = ({ kiosk, onClose }: { kiosk: Kiosk; onClose: () => void }) =
   const db = useDb();
   const modes = useModeOptions();
   const [name, setName] = useState(kiosk.name ?? "");
-  const [cp, setCp] = useState(kiosk.checkpointId ?? db.checkpoints[0].id);
+  const [cp, setCp] = useState(kiosk.checkpointId ?? db.checkpoints[0]?.id ?? "");
   const [mode, setMode] = useState<ModeOpt>(kiosk.mode ?? "DEFAULT");
   const offs = useOfflineOptions();
   const per = usePerKiosk();
@@ -195,7 +195,7 @@ export const TerminalsPage = () => {
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Код с экрана киоска" error={err}><Input value={code} maxLength={6} onChange={(e) => { setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "")); setErr(null); }} placeholder="Например, K7Q2MX" className="font-mono tracking-widest" autoComplete="off" /></Field>
               <Field label="Название"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, Турникет 1" /></Field>
-              <Field label="Проходная"><Select value={cp} onChange={setCp} options={db.checkpoints.map((c) => ({ value: c.id, label: c.name }))} /></Field>
+              <Field label="Проходная" hint={db.checkpoints.length ? undefined : "Проходных нет — создайте их в разделе «Объекты»"}><Select value={cp} onChange={setCp} options={db.checkpoints.map((c) => ({ value: c.id, label: c.name }))} /></Field>
               {per ? <>
                 <Field label="Логика работы" hint="По умолчанию — как в настройках"><Select value={mode} onChange={setMode} options={modes} /></Field>
                 <Field label="Без связи с сервером" hint="По умолчанию — как в настройках"><Select value={off} onChange={setOff} options={offs} /></Field>

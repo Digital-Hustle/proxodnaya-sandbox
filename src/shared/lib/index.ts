@@ -9,3 +9,4 @@ export * from "./qrShape";
 export * from "./chain";
 export * from "./pwa";
 export * from "./terminalCode";
+export * from "./faceQuality";

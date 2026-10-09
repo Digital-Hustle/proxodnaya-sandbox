@@ -1,9 +1,9 @@
 // Мок-бэкенд в браузере. Решение о проходе принимается ЗДЕСЬ, а не в компонентах (как Д2 в продукте:
 // UI только показывает то, что вернул «сервер»).
-import type { OfflineBatch, OfflineSyncResult, OfflineSnapshot, Attempt, Challenge, Checkpoint, Db, Kiosk, TerminalMode, OfflinePolicy, ManualReview, AdminUser, AccessEvent, Role, DecisionResult, Device, Direction, FrameStat, ReasonCode, Shift, Worker } from "../types";
+import type { FaceCheck, Site, Zone, OfflineBatch, OfflineSyncResult, OfflineSnapshot, Attempt, Challenge, Checkpoint, Db, Kiosk, TerminalMode, OfflinePolicy, ManualReview, AdminUser, AccessEvent, Role, DecisionResult, Device, Direction, FrameStat, ReasonCode, Shift, Worker } from "../types";
 import { getDb, mutate, resetDb } from "./store";
 import { REASONS } from "./reasons";
-import { presenceNow, shiftFor, buildIntervals } from "./derived";
+import { presenceNow, shiftFor, buildIntervals, sitesOf, siteOfZone } from "./derived";
 import { currentWindow, parsePassQr, signedMessage, buildPassQr, QR_WINDOW_SEC } from "../../lib/passQr";
 import { verify, createKey, loadKey } from "../../lib/deviceKey";
 import { randomId, inviteCode } from "../../lib/id";
@@ -12,6 +12,8 @@ import { b64uToJson } from "../../lib/b64";
 import { GENESIS, canonical, linkHash } from "../../lib/chain";
 import { motion as m } from "../../config/tokens";
 import { hashTerminalCode, checkTerminalCode, weakTerminalCode, type TerminalCodeKind } from "../../lib/terminalCode";
+import { analyzeFace, hashDistance } from "../../lib/faceQuality";
+import { DEFAULT_ZONE_SITE } from "./seed";
 
 const latency = (min = 120, max = 380) => new Promise((r) => setTimeout(r, min + Math.random() * (max - min)));
 
@@ -435,22 +437,31 @@ export const forgePassQr = async (workerId: string) => {
 // ——— Админка ———
 export type WorkerDraft = Pick<Worker, "fullName" | "position" | "contractor" | "zoneIds"> & { photo?: string };
 
-export const createWorker = async (draft: WorkerDraft) => {
+/** ADR-047: сервер не верит «галочке» интерфейса — снимок при оформлении проверяется ещё раз. */
+const requireGoodPhoto = async (photo: string, workerId?: string) => {
+  const c = await checkFacePhoto(photo, workerId);
+  if (!c.ok) throw new Error(`${c.message}. ${c.hint}`);
+  return c;
+};
+
+export const createWorker = async (draft: WorkerDraft, byId?: string) => {
   await latency();
-  const w: Worker = { ...draft, id: randomId("w", 6), status: "active", permitUntil: todayKey(new Date(Date.now() + 180 * 86400000)), inviteCode: inviteCode(), createdAt: Date.now(),
-    face: draft.photo ? { status: "ACTIVE", source: "HR", at: Date.now() } : { status: "NONE" } };
-  mutate((d) => { d.workers.push(w); });
+  const check = draft.photo ? await requireGoodPhoto(draft.photo) : null;
+  const w: Worker = { ...draft, fullName: cleanName(draft.fullName), id: randomId("w", 6), status: "active", permitUntil: todayKey(new Date(Date.now() + 180 * 86400000)), inviteCode: inviteCode(), createdAt: Date.now(),
+    face: check ? { status: "ACTIVE", source: "HR", at: Date.now(), by: byId, hash: check.hash } : { status: "NONE" } };
+  mutate((d) => { d.workers.push(w); if (byId) logAccess(d, { by: byId, target: w.id, action: "WORKER", detail: `Заведён сотрудник ${w.fullName}` }); });
   return w;
 };
 
 export const updateWorker = async (id: string, patch: Partial<Worker>) => {
   await latency(80, 200);
+  const check = patch.photo && !patch.face ? await requireGoodPhoto(patch.photo, id) : null;
   mutate((d) => {
     const w = d.workers.find((x) => x.id === id);
     if (!w) return;
     Object.assign(w, patch);
-    // Фото, снятое администратором, — эталон от отдела кадров (ADR-046).
-    if (patch.photo && !patch.face) w.face = { status: "ACTIVE", source: "HR", at: Date.now() };
+    // Фото, снятое администратором, — эталон от отдела кадров (ADR-046), уже проверенный (ADR-047).
+    if (check) w.face = { status: "ACTIVE", source: "HR", at: Date.now(), hash: check.hash };
   });
 };
 
@@ -831,7 +842,10 @@ export const enrollFace = async (p: { workerId: string; deviceId: string; at: nu
   const live = livenessCode(p.frames);
   if (live) throw new Error(REASONS[live].message + ". " + REASONS[live].hint);
   if (!p.photo.startsWith("data:image/")) throw new Error("Не удалось прочитать снимок");
-  mutate((d) => { const x = d.workers.find((v) => v.id === p.workerId); if (x) x.face = { status: "PENDING", source: "PHONE", at: Date.now(), pendingPhoto: p.photo }; });
+  // ADR-047: качество — сразу на телефоне (человек переснимет), повтор чужого лица — подсказка проверяющему.
+  const check = await checkFacePhoto(p.photo, p.workerId);
+  if (!check.ok && check.code !== "DUPLICATE") throw new Error(`${check.message}. ${check.hint}`);
+  mutate((d) => { const x = d.workers.find((v) => v.id === p.workerId); if (x) x.face = { status: "PENDING", source: "PHONE", at: Date.now(), pendingPhoto: p.photo, hash: check.hash, dupOf: check.duplicate?.workerId }; });
 };
 
 /** Подтвердить или отклонить эталон с телефона: служба безопасности сверяет снимок с документом. */
@@ -843,7 +857,296 @@ export const reviewFace = async (workerId: string, approve: boolean, byId: strin
     const photo = w.face.pendingPhoto;
     if (approve && photo) w.photo = photo;
     w.face = approve
-      ? { status: "ACTIVE", source: w.face.source, at: Date.now(), by: byId }
+      ? { status: "ACTIVE", source: w.face.source, at: Date.now(), by: byId, hash: w.face.hash }
       : { status: "REJECTED", source: w.face.source, at: Date.now(), by: byId, comment: comment?.trim() || "Снимок не подошёл" };
   });
 };
+
+
+// ---------- ADR-047: проверка эталона при оформлении ----------
+/** Пороги проверки снимка. Песочница: свет/контраст/резкость; в продукте — детектор и качество YuNet. */
+export const FACE_RULES = { minSide: 120, dark: 0.16, bright: 0.86, flat: 0.05, blur: 0.0009, duplicateBits: 6 } as const;
+
+const FACE_TEXT: Record<FaceCheck["code"], [string, string]> = {
+  OK: ["Снимок подходит", "Он станет эталоном — терминалы будут сверять лицо с ним"],
+  NO_FACE: ["Лица не видно", "Человек должен смотреть в камеру, лицо — в овале рамки"],
+  TOO_DARK: ["Слишком темно", "Повернитесь к свету или включите освещение"],
+  TOO_BRIGHT: ["Пересвет", "Уберите яркий свет за спиной или сбоку"],
+  BLURRY: ["Снимок смазан", "Попросите не двигаться и снимите ещё раз"],
+  TOO_SMALL: ["Слишком маленькое фото", "Нужно не меньше 120 px по короткой стороне"],
+  DUPLICATE: ["Это лицо уже есть в базе", "Один человек — одна карточка. Откройте найденную карточку или переснимите, если это другой человек"],
+};
+
+/**
+ * Проверка снимка-эталона: качество и повтор (не заведён ли этот человек под другим именем).
+ * Вызывается сразу после снимка — до сохранения карточки, пока человек ещё перед камерой.
+ */
+export const checkFacePhoto = async (photo: string, exceptWorkerId?: string): Promise<FaceCheck> => {
+  await latency(250, 500);
+  const res = (code: FaceCheck["code"], score: number, extra: Partial<FaceCheck> = {}): FaceCheck =>
+    ({ ok: code === "OK", code, message: FACE_TEXT[code][0], hint: FACE_TEXT[code][1], score: Math.max(0, Math.min(1, score)), ...extra });
+  if (!photo.startsWith("data:image/")) return res("NO_FACE", 0);
+  let q;
+  try { q = await analyzeFace(photo); } catch { return res("NO_FACE", 0); }
+  const light = 1 - Math.min(1, Math.abs(q.brightness - 0.5) / 0.4);
+  const score = 0.4 * light + 0.3 * Math.min(1, q.contrast / 0.2) + 0.3 * Math.min(1, q.sharpness / (FACE_RULES.blur * 6));
+  if (q.side < FACE_RULES.minSide) return res("TOO_SMALL", score);
+  if (q.brightness < FACE_RULES.dark) return res("TOO_DARK", score);
+  if (q.brightness > FACE_RULES.bright) return res("TOO_BRIGHT", score);
+  if (q.contrast < FACE_RULES.flat) return res("NO_FACE", score);
+  if (q.sharpness < FACE_RULES.blur) return res("BLURRY", score);
+  // Поиск повтора 1:N среди действующих эталонов. В продукте — косинус эмбеддингов SFace, здесь — хэш снимка.
+  const db = getDb();
+  for (const w of db.workers) {
+    if (w.id === exceptWorkerId) continue;
+    let h = w.face?.hash;
+    if (!h && w.photo) { try { h = (await analyzeFace(w.photo)).hash; } catch { /* битое фото — пропускаем */ } }
+    if (h && hashDistance(h, q.hash) <= FACE_RULES.duplicateBits) return res("DUPLICATE", score, { hash: q.hash, duplicate: { workerId: w.id, fullName: w.fullName } });
+  }
+  return res("OK", score, { hash: q.hash });
+};
+
+/** Переснять эталон из карточки (HR при человеке): проверка та же, старый эталон заменяется. */
+export const setWorkerFace = async (workerId: string, photo: string, byId: string) => {
+  const check = await requireGoodPhoto(photo, workerId);
+  mutate((d) => {
+    const w = d.workers.find((v) => v.id === workerId);
+    if (!w) return;
+    w.photo = photo;
+    w.face = { status: "ACTIVE", source: "HR", at: Date.now(), by: byId, hash: check.hash };
+    logAccess(d, { by: byId, target: workerId, action: "WORKER", detail: `Новый эталон лица: ${w.fullName}` });
+  });
+};
+
+
+// ---------- ADR-047: карточка сотрудника ----------
+const requireRole = (db: Db, byId: string, roles: Role[], text: string) => {
+  const u = adminsOf(db).find((x) => x.id === byId);
+  if (!u || u.status !== "ACTIVE" || !roles.includes(u.role)) throw new Error(text);
+  return u;
+};
+const cleanName = (s: string) => s.trim().replace(/\s+/g, " ");
+const same = (a: string, b: string) => a.toLocaleLowerCase("ru") === b.toLocaleLowerCase("ru");
+
+export type WorkerEdit = Partial<Pick<Worker, "fullName" | "position" | "contractor" | "zoneIds">>;
+/** Данные и допуски сотрудника. Менять могут те же, кто заводит людей; пустое поле не меняется. */
+export const editWorker = async (id: string, patch: WorkerEdit, byId: string) => {
+  await latency(120, 260);
+  const db = getDb();
+  requireRole(db, byId, ["ADMIN", "SECURITY_OFFICER", "MANAGER"], "Недостаточно прав, чтобы менять карточку");
+  const w = db.workers.find((x) => x.id === id);
+  if (!w) throw new Error("Сотрудник не найден");
+  const fullName = patch.fullName !== undefined ? cleanName(patch.fullName) : w.fullName;
+  if (fullName.split(" ").length < 2) throw new Error("Нужны хотя бы фамилия и имя");
+  if (patch.zoneIds && !patch.zoneIds.length) throw new Error("Оставьте хотя бы одну зону допуска");
+  const zoneIds = patch.zoneIds?.filter((z) => db.zones.some((x) => x.id === z));
+  mutate((d) => {
+    const x = d.workers.find((v) => v.id === id);
+    if (!x) return;
+    x.fullName = fullName;
+    if (patch.position?.trim()) x.position = patch.position.trim();
+    if (patch.contractor?.trim()) x.contractor = patch.contractor.trim();
+    if (zoneIds) x.zoneIds = zoneIds;
+    logAccess(d, { by: byId, target: id, action: "WORKER", detail: `Изменена карточка: ${fullName}` });
+  });
+};
+
+/**
+ * Удалить сотрудника (только администратор). Телефоны отвязываются, смены снимаются; проходы в журнале остаются —
+ * это учёт рабочего времени. В продукте — мягкое удаление DELETE /workers/{id} с удалением биометрии (NFR-10).
+ */
+export const deleteWorker = async (id: string, byId: string) => {
+  await latency(150, 300);
+  const db = getDb();
+  requireRole(db, byId, ["ADMIN"], "Удалять сотрудников может только администратор");
+  const w = db.workers.find((x) => x.id === id);
+  if (!w) throw new Error("Сотрудник не найден");
+  if (presenceNow(db).some((p) => p.workerId === id)) throw new Error("Сотрудник сейчас на объекте — сначала отметьте выход");
+  mutate((d) => {
+    d.workers = d.workers.filter((x) => x.id !== id);
+    d.devices = d.devices.map((x) => (x.workerId === id && !x.revokedAt ? { ...x, revokedAt: Date.now() } : x));
+    d.shifts = d.shifts.filter((x) => !(x.workerId === id && x.day >= todayKey()));
+    logAccess(d, { by: byId, target: id, action: "WORKER", detail: `Удалён сотрудник ${w.fullName}` });
+  });
+};
+
+
+// ---------- ADR-047: объекты, зоны, проходные ----------
+/** Читают все роли кабинета, меняет только администратор — проверка здесь, а не только в интерфейсе. */
+const requireObjects = (db: Db, byId: string) => requireRole(db, byId, ["ADMIN"], "Менять объекты, зоны и проходные может только администратор");
+const NAME_MIN = 2, NAME_MAX = 80;
+const checkName = (raw: string, what: string) => {
+  const name = cleanName(raw);
+  if (name.length < NAME_MIN) throw new Error(`Укажите название ${what}`);
+  if (name.length > NAME_MAX) throw new Error(`Название ${what} — не длиннее ${NAME_MAX} символов`);
+  return name;
+};
+const checkCapacity = (n: number | undefined) => {
+  const c = Math.round(Number(n ?? 0));
+  if (!Number.isFinite(c) || c < 1 || c > 100000) throw new Error("Вместимость — от 1 до 100 000 человек");
+  return c;
+};
+/** Старые базы: объекты по умолчанию и привязку зон записываем явно перед первой правкой. */
+const materializeSites = (d: Db) => {
+  if (!d.sites) d.sites = structuredClone(sitesOf(d));
+  for (const z of d.zones) if (!z.siteId) z.siteId = DEFAULT_ZONE_SITE[z.id] ?? siteOfZone(d, z.id)?.id;
+};
+const logObject = (d: Db, byId: string, target: string, detail: string) => logAccess(d, { by: byId, target, action: "OBJECT", detail });
+
+export const createSite = async (p: { name: string; address?: string }, byId: string): Promise<Site> => {
+  await latency();
+  const db = getDb();
+  requireObjects(db, byId);
+  const name = checkName(p.name, "объекта");
+  if (sitesOf(db).some((s) => same(s.name, name))) throw new Error("Объект с таким названием уже есть");
+  const site: Site = { id: randomId("s"), name, address: p.address?.trim() || undefined };
+  mutate((d) => { materializeSites(d); d.sites!.push(site); logObject(d, byId, site.id, `Создан объект «${name}»`); });
+  return site;
+};
+
+export const updateSite = async (id: string, p: { name?: string; address?: string }, byId: string) => {
+  await latency(100, 220);
+  const db = getDb();
+  requireObjects(db, byId);
+  const cur = sitesOf(db).find((s) => s.id === id);
+  if (!cur) throw new Error("Объект не найден");
+  const name = p.name !== undefined ? checkName(p.name, "объекта") : cur.name;
+  if (sitesOf(db).some((s) => s.id !== id && same(s.name, name))) throw new Error("Объект с таким названием уже есть");
+  mutate((d) => {
+    materializeSites(d);
+    const s = d.sites!.find((x) => x.id === id);
+    if (!s) return;
+    s.name = name;
+    if (p.address !== undefined) s.address = p.address.trim() || undefined;
+    logObject(d, byId, id, `Изменён объект «${name}»`);
+  });
+};
+
+/** Удалить объект можно, только когда в нём не осталось зон: так случайно не пропадут проходные и допуски. */
+export const deleteSite = async (id: string, byId: string) => {
+  await latency(120, 260);
+  const db = getDb();
+  requireObjects(db, byId);
+  const cur = sitesOf(db).find((s) => s.id === id);
+  if (!cur) throw new Error("Объект не найден");
+  const zones = db.zones.filter((z) => siteOfZone(db, z.id)?.id === id);
+  if (zones.length) throw new Error(`В объекте ${zones.length} ${zones.length === 1 ? "зона" : zones.length < 5 ? "зоны" : "зон"} — перенесите или удалите их`);
+  mutate((d) => { materializeSites(d); d.sites = d.sites!.filter((s) => s.id !== id); logObject(d, byId, id, `Удалён объект «${cur.name}»`); });
+};
+
+export const createZone = async (p: { siteId: string; name: string; capacity: number }, byId: string): Promise<Zone> => {
+  await latency();
+  const db = getDb();
+  requireObjects(db, byId);
+  if (!sitesOf(db).some((s) => s.id === p.siteId)) throw new Error("Выберите объект");
+  const name = checkName(p.name, "зоны");
+  if (db.zones.some((z) => siteOfZone(db, z.id)?.id === p.siteId && same(z.name, name))) throw new Error("В этом объекте уже есть зона с таким названием");
+  const zone: Zone = { id: randomId("z"), name, capacity: checkCapacity(p.capacity), siteId: p.siteId };
+  mutate((d) => { materializeSites(d); d.zones.push(zone); logObject(d, byId, zone.id, `Создана зона «${name}»`); });
+  return zone;
+};
+
+export const updateZone = async (id: string, p: { name?: string; capacity?: number; siteId?: string }, byId: string) => {
+  await latency(100, 220);
+  const db = getDb();
+  requireObjects(db, byId);
+  const cur = db.zones.find((z) => z.id === id);
+  if (!cur) throw new Error("Зона не найдена");
+  const siteId = p.siteId ?? siteOfZone(db, id)?.id;
+  if (!sitesOf(db).some((s) => s.id === siteId)) throw new Error("Выберите объект");
+  const name = p.name !== undefined ? checkName(p.name, "зоны") : cur.name;
+  if (db.zones.some((z) => z.id !== id && siteOfZone(db, z.id)?.id === siteId && same(z.name, name))) throw new Error("В этом объекте уже есть зона с таким названием");
+  const capacity = p.capacity !== undefined ? checkCapacity(p.capacity) : cur.capacity;
+  mutate((d) => {
+    materializeSites(d);
+    const z = d.zones.find((x) => x.id === id);
+    if (!z) return;
+    Object.assign(z, { name, capacity, siteId });
+    logObject(d, byId, id, `Изменена зона «${name}»`);
+  });
+};
+
+/** Что затронет удаление зоны — показываем до подтверждения. */
+export const zoneUsage = (db: Db, id: string) => ({
+  checkpoints: db.checkpoints.filter((c) => c.zoneId === id).length,
+  permits: db.workers.filter((w) => w.zoneIds.includes(id)).length,
+  inside: presenceNow(db).filter((p) => p.zoneId === id).length,
+});
+
+/**
+ * Удалить зону: проходных в ней быть не должно (их сначала переносят или удаляют), людей внутри — тоже.
+ * Допуск в эту зону снимается у всех сотрудников.
+ */
+export const deleteZone = async (id: string, byId: string) => {
+  await latency(120, 260);
+  const db = getDb();
+  requireObjects(db, byId);
+  const cur = db.zones.find((z) => z.id === id);
+  if (!cur) throw new Error("Зона не найдена");
+  const u = zoneUsage(db, id);
+  if (u.checkpoints) throw new Error("В зоне есть проходные — перенесите или удалите их");
+  if (u.inside) throw new Error(`Сейчас в зоне ${u.inside} чел. — удалить можно, когда все выйдут`);
+  mutate((d) => {
+    d.zones = d.zones.filter((z) => z.id !== id);
+    for (const w of d.workers) if (w.zoneIds.includes(id)) w.zoneIds = w.zoneIds.filter((z) => z !== id);
+    logObject(d, byId, id, `Удалена зона «${cur.name}»${u.permits ? `, допуск снят у ${u.permits} чел.` : ""}`);
+  });
+  return u;
+};
+
+export const createCheckpoint = async (p: { zoneId: string; name: string; mode?: Checkpoint["mode"] }, byId: string): Promise<Checkpoint> => {
+  await latency();
+  const db = getDb();
+  requireObjects(db, byId);
+  if (!db.zones.some((z) => z.id === p.zoneId)) throw new Error("Выберите зону, в которую ведёт проходная");
+  const name = checkName(p.name, "проходной");
+  if (db.checkpoints.some((c) => same(c.name, name))) throw new Error("Проходная с таким названием уже есть");
+  const cp: Checkpoint = { id: randomId("cp"), name, zoneId: p.zoneId, mode: p.mode && p.mode !== "AUTO" ? p.mode : undefined };
+  mutate((d) => { d.checkpoints.push(cp); logObject(d, byId, cp.id, `Создана проходная «${name}»`); });
+  return cp;
+};
+
+export const editCheckpoint = async (id: string, p: { name?: string; zoneId?: string; mode?: Checkpoint["mode"] }, byId: string) => {
+  await latency(100, 220);
+  const db = getDb();
+  requireObjects(db, byId);
+  const cur = db.checkpoints.find((c) => c.id === id);
+  if (!cur) throw new Error("Проходная не найдена");
+  const name = p.name !== undefined ? checkName(p.name, "проходной") : cur.name;
+  if (db.checkpoints.some((c) => c.id !== id && same(c.name, name))) throw new Error("Проходная с таким названием уже есть");
+  if (p.zoneId && !db.zones.some((z) => z.id === p.zoneId)) throw new Error("Зона не найдена");
+  mutate((d) => {
+    const c = d.checkpoints.find((x) => x.id === id);
+    if (!c) return;
+    c.name = name;
+    if (p.zoneId) c.zoneId = p.zoneId;
+    if (p.mode) c.mode = p.mode === "AUTO" ? undefined : p.mode;
+    logObject(d, byId, id, `Изменена проходная «${name}»`);
+  });
+};
+
+/** Терминалы, привязанные к проходной, — до подтверждения удаления. */
+export const checkpointKiosks = (db: Db, id: string) => (db.kiosks ?? []).filter((k) => k.pairedAt && k.checkpointId === id);
+
+/**
+ * Удалить проходную. Привязанные терминалы возвращаются к коду сопряжения (как «Отвязать»), записи журнала
+ * остаются и показывают прежнее название.
+ */
+export const deleteCheckpoint = async (id: string, byId: string) => {
+  await latency(120, 260);
+  const db = getDb();
+  requireObjects(db, byId);
+  const cur = db.checkpoints.find((c) => c.id === id);
+  if (!cur) throw new Error("Проходная не найдена");
+  const kiosks = checkpointKiosks(db, id);
+  mutate((d) => {
+    d.checkpoints = d.checkpoints.filter((c) => c.id !== id);
+    d.removedCheckpoints = { ...d.removedCheckpoints, [id]: { name: cur.name, zoneId: cur.zoneId } };
+    d.kiosks = (d.kiosks ?? []).map((k) => (kiosks.some((x) => x.id === k.id) ? { id: k.id, pairCode: inviteCode(), createdAt: Date.now(), lastSeen: Date.now(), publicKey: k.publicKey, chain: k.chain } : k));
+    logObject(d, byId, id, `Удалена проходная «${cur.name}»${kiosks.length ? `, отвязано терминалов: ${kiosks.length}` : ""}`);
+  });
+  return kiosks.length;
+};
+
+/** Название проходной для журнала — в том числе удалённой. */
+export const checkpointName = (db: Db, id: string) => db.checkpoints.find((c) => c.id === id)?.name ?? (db.removedCheckpoints?.[id] ? `${db.removedCheckpoints[id].name} (удалена)` : id);

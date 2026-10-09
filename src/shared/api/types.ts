@@ -32,7 +32,19 @@ export type Worker = {
  * ADR-046: эталон лица для сверки на проходной. HR — снят при оформлении, PHONE — селфи с проверкой живости
  * на телефоне сотрудника (ждёт подтверждения человеком), KIOSK — снят на терминале при охраннике.
  */
-export type FaceRef = { status: "NONE" | "PENDING" | "ACTIVE" | "REJECTED"; source?: "HR" | "PHONE" | "KIOSK"; at?: number; by?: string; pendingPhoto?: string; comment?: string };
+export type FaceRef = { status: "NONE" | "PENDING" | "ACTIVE" | "REJECTED"; source?: "HR" | "PHONE" | "KIOSK"; at?: number; by?: string; pendingPhoto?: string; comment?: string;
+  /** ADR-047: хэш эталона — по нему сервер ищет, не заведено ли это лицо на другого человека. */
+  hash?: string;
+  /** ADR-047: селфи на проверке похоже на эталон другого сотрудника — подсказка проверяющему. */
+  dupOf?: string };
+
+/**
+ * ADR-047: ответ проверки снимка-эталона. Приходит сразу при оформлении: HR видит ошибку и переснимает,
+ * пока человек ещё рядом. В продукте — POST /workers/face/check (YuNet + SFace).
+ */
+export type FaceCheckCode = "OK" | "NO_FACE" | "TOO_DARK" | "TOO_BRIGHT" | "BLURRY" | "TOO_SMALL" | "DUPLICATE";
+export type FaceCheck = { ok: boolean; code: FaceCheckCode; message: string; hint: string; score: number; hash?: string;
+  duplicate?: { workerId: string; fullName: string } };
 
 export type Device = { id: string; workerId: string; publicKey: string; createdAt: number; revokedAt?: number; label: string };
 export type Zone = { id: string; name: string; capacity: number; /** ADR-044: объект, к которому относится зона. */ siteId?: string };
@@ -182,7 +194,9 @@ export type Role = "ADMIN" | "SECURITY_OFFICER" | "MANAGER" | "INSTALLER" | "GUA
 /** Пользователь панели (ADR-041). INVITED — приглашён, ещё не входил; DISABLED — доступ отозван. */
 export type AdminUser = { id: string; name: string; email: string; role: Role; status: "ACTIVE" | "INVITED" | "DISABLED"; createdAt: number; lastSeen?: number };
 /** Запись журнала доступа: кто, кому, что и когда. Только дописывается. */
-export type AccessEvent = { id: string; ts: number; by: string; target: string; action: "INVITE" | "ROLE" | "DISABLE" | "ENABLE" | "JOIN" | "CODE" | "LOGIN" | "LOGOUT"; from?: Role; to?: Role;
+export type AccessEvent = { id: string; ts: number; by: string; target: string; action: "INVITE" | "ROLE" | "DISABLE" | "ENABLE" | "JOIN" | "CODE" | "LOGIN" | "LOGOUT" | "OBJECT" | "WORKER"; from?: Role; to?: Role;
+  /** ADR-047: что сделали с объектом, зоной, проходной или карточкой сотрудника (action = OBJECT | WORKER). */
+  detail?: string;
   /** ADR-046: какой код терминалов сменили (action = CODE). */
   code?: TerminalCodeKind };
 
@@ -208,6 +222,8 @@ export type Db = {
   /** ADR-046: одноразовые коды входа в кабинет (только хэш) и выданные сессии. */
   loginCodes?: LoginCode[];
   adminSessions?: AdminSession[];
+  /** ADR-047: названия удалённых проходных — журнал проходов продолжает их показывать. */
+  removedCheckpoints?: Record<string, { name: string; zoneId: string }>;
 };
 
 /** ADR-046: код входа по почте. Один активный на адрес, 5 попыток, 10 минут. */
