@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft, ArrowRight, Mail, MailCheck, ShieldCheck } from "lucide-react";
 import { api, useDb, LOGIN_CODE_LEN } from "@/shared/api";
-import { Avatar, Button, CodeInput, Field, HeaderBar, Input, Logo, PreferencesButton, Spinner, Status, type CodeState } from "@/shared/ui";
+import { Avatar, Button, CodeInput, Field, HeaderBar, Input, Logo, PreferencesButton, Spinner, type CodeState } from "@/shared/ui";
 import { useSession, roleLabel } from "@/entities/session";
 import { routes } from "@/shared/const/router";
 import { fadeUp, popIn, press, spring, stagger, tween } from "@/shared/config/motion";
@@ -70,7 +70,7 @@ export const LoginPage = () => {
 
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 pb-16 pt-8 sm:px-6">
         <motion.div variants={stagger(0.07)} initial="hidden" animate="show" className="flex flex-col items-center text-center">
-          <motion.div variants={fadeUp}><Status tone="success" dot className="h-7 bg-card/70 px-3 backdrop-blur-md">Руководители, охрана и инженеры</Status></motion.div>
+          <motion.p variants={fadeUp} className="text-sm font-medium text-brand">Руководители, охрана и инженеры</motion.p>
           <motion.h1 variants={fadeUp} className="mt-5 text-balance font-display text-4xl font-semibold leading-none tracking-hero sm:text-5xl">Вход в кабинет</motion.h1>
           <motion.p variants={fadeUp} className="mt-3 text-pretty text-base text-foreground/70">Без пароля: пришлём одноразовый код на рабочую почту</motion.p>
         </motion.div>

@@ -15,9 +15,9 @@ const ACTION: Record<AccessEvent["action"], string> = { INVITE: "Приглаш�
 const msg = (e: unknown, f: string) => (e instanceof Error ? e.message : f);
 
 const StatusMark = ({ u }: { u: AdminUser }) =>
-  u.status === "ACTIVE" ? <Status tone="success" dot>активен</Status>
-  : u.status === "INVITED" ? <Status tone="info" dot>приглашён</Status>
-  : <Status tone="danger" dot>отключён</Status>;
+  u.status === "ACTIVE" ? <Status tone="success">активен</Status>
+  : u.status === "INVITED" ? <Status tone="info">приглашён</Status>
+  : <Status tone="danger">отключён</Status>;
 
 const InviteDialog = ({ open, onClose, byId }: { open: boolean; onClose: () => void; byId: string }) => {
   const [name, setName] = useState("");

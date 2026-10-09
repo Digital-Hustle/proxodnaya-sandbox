@@ -4,5 +4,5 @@ import { viewForResult } from "../model/decisionView";
 
 export const DecisionBadge = ({ decision, code }: { decision: Decision; code?: ReasonCode }) => {
   const v = viewForResult({ decision, code: code ?? "OK" });
-  return <Status tone={v.tone} dot>{v.label}</Status>;
+  return <Status tone={v.tone}>{v.label}</Status>;
 };

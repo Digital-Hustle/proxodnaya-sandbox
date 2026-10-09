@@ -1,13 +1,16 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { Building2, DoorOpen, Layers, Lock, MapPin, MonitorSmartphone, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useSession, can } from "@/entities/session";
 import { api, useDb, presenceNow, sitesOf, siteOfZone, type Checkpoint, type CheckpointMode, type Db, type Site, type Zone } from "@/shared/api";
-import { Button, Card, Dialog, EmptyState, Field, Input, PageHeader, Progress, Select, Status, toast } from "@/shared/ui";
+import { AnimatedNumber, Button, Card, Dialog, useDialogState, EmptyState, Field, Input, PageHeader, Progress, Select, Status, toast } from "@/shared/ui";
 import { routes } from "@/shared/const/router";
 import { cn } from "@/shared/lib";
-import { fadeUp, stagger } from "@/shared/config/motion";
+import { fadeUp, popIn, spring, stagger } from "@/shared/config/motion";
+
+/** Появление/удаление строки списка: остальные строки съезжают пружиной (layout), сама строка — fadeUp. */
+const row = { layout: true, variants: fadeUp, initial: "hidden", animate: "show", exit: "exit", transition: { layout: spring.soft } } as const;
 
 type Kind = "site" | "zone" | "checkpoint";
 type Edit = { kind: Kind; id?: string; parentId?: string };
@@ -18,7 +21,8 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : "Не получи
 const plural = (n: number, one: string, few: string, many: string) => (n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many);
 
 /** Создание и правка объекта, зоны или проходной: одна форма, поля зависят от вида. */
-const EditDialog = ({ edit, onClose }: { edit: Edit; onClose: () => void }) => {
+const EditDialog = ({ edit, onClose: onClosed }: { edit: Edit; onClose: () => void }) => {
+  const { open, close: onClose } = useDialogState();
   const db = useDb();
   const by = useSession((x) => x.userId);
   const sites = sitesOf(db);
@@ -51,7 +55,7 @@ const EditDialog = ({ edit, onClose }: { edit: Edit; onClose: () => void }) => {
     : edit.kind === "zone" ? "Часть объекта со своим допуском и вместимостью: корпус, склад, штаб"
     : "Пункт пропуска с турникетом. Ведёт в зону; терминал привязывается к проходной в «Терминалах»";
   return (
-    <Dialog open onClose={onClose} title={creating ? WHAT[edit.kind][0] : `${WHAT[edit.kind][1]}: правка`} description={desc}>
+    <Dialog open={open} onClose={onClose} onClosed={onClosed} title={creating ? WHAT[edit.kind][0] : `${WHAT[edit.kind][1]}: правка`} description={desc}>
       <form onSubmit={submit} className="flex flex-col gap-4">
         {edit.kind === "zone" && <Field label="Объект"><Select value={siteId} onChange={setSiteId} options={sites.map((s) => ({ value: s.id, label: s.name }))} /></Field>}
         {edit.kind === "checkpoint" && <Field label="Ведёт в зону" hint={cp ? "Перенос меняет, куда считается вход; журнал не меняется" : undefined}><Select value={zoneId} onChange={setZoneId} options={zoneOptions} /></Field>}
@@ -92,11 +96,16 @@ const deletePlan = (db: Db, kind: Kind, id: string): { title: string; text: stri
   return { title: `Удалить проходную «${c?.name}»?`, text: k.length ? `${k.length} ${plural(k.length, "терминал вернётся", "терминала вернутся", "терминалов вернутся")} к коду сопряжения и перестанут пропускать: ${k.map((x) => x.name ?? "Терминал").join(", ")}. Записи журнала останутся с прежним названием.` : "Терминалов на ней нет. Записи журнала останутся с прежним названием." };
 };
 
-const DeleteDialog = ({ target, onClose }: { target: { kind: Kind; id: string }; onClose: () => void }) => {
+const DeleteDialog = ({ target, onClose: onClosed }: { target: { kind: Kind; id: string }; onClose: () => void }) => {
+  const { open, close: onClose } = useDialogState();
   const db = useDb();
   const by = useSession((x) => x.userId);
   const [busy, setBusy] = useState(false);
-  const plan = deletePlan(db, target.kind, target.id);
+  // После удаления диалог ещё доигрывает выход — показываем текст, каким он был до удаления.
+  const live = deletePlan(db, target.kind, target.id);
+  const shown = useRef(live);
+  if (open && !busy) shown.current = live;
+  const plan = shown.current;
   const run = async () => {
     setBusy(true);
     try {
@@ -107,7 +116,7 @@ const DeleteDialog = ({ target, onClose }: { target: { kind: Kind; id: string };
     } catch (x) { toast.error(msg(x)); setBusy(false); }
   };
   return (
-    <Dialog open onClose={onClose} title={plan.title} description={plan.blocked ?? plan.text}
+    <Dialog open={open} onClose={onClose} onClosed={onClosed} title={plan.title} description={plan.blocked ?? plan.text}
       footer={plan.blocked ? <Button variant="secondary" onClick={onClose}>Понятно</Button> : <><Button variant="quiet" onClick={onClose}>Отмена</Button><Button variant="danger" disabled={busy} onClick={run}><Trash2 />Удалить</Button></>}>
       <span />
     </Dialog>
@@ -122,14 +131,14 @@ const CheckpointRow = ({ c, edit, onEdit, onDelete }: { c: Checkpoint; edit: boo
   const db = useDb();
   const kiosks = api.checkpointKiosks(db, c.id).length;
   return (
-    <li className="flex min-w-0 items-center gap-3 py-2 pl-3 pr-1">
+    <motion.li {...row} className="flex min-w-0 items-center gap-3 py-2 pl-3 pr-1">
       <DoorOpen className="size-4 shrink-0 text-subtle-foreground" />
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium">{c.name}</div>
         <div className="truncate text-xs text-muted-foreground">{MODE_SHORT[c.mode ?? "AUTO"]} · {kiosks ? `${kiosks} ${plural(kiosks, "терминал", "терминала", "терминалов")}` : "без терминала"}</div>
       </div>
       {edit && <div className="flex shrink-0"><IconBtn label={`Изменить: ${c.name}`} onClick={onEdit}><Pencil /></IconBtn><IconBtn label={`Удалить: ${c.name}`} onClick={onDelete}><Trash2 /></IconBtn></div>}
-    </li>
+    </motion.li>
   );
 };
 
@@ -139,8 +148,8 @@ const ZoneBlock = ({ z, inside, edit, open }: { z: Zone; inside: number; edit: b
   const permits = db.workers.filter((w) => w.zoneIds.includes(z.id)).length;
   const load = z.capacity ? inside / z.capacity : 0;
   return (
-    <div className="rounded-lg border border-border">
-      <div className="flex flex-wrap items-center gap-3 px-3 py-3 sm:px-4">
+    <motion.div {...row} className="overflow-hidden rounded-lg border border-border">
+      <motion.div layout="position" className="flex flex-wrap items-center gap-3 px-3 py-3 sm:px-4">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-sm bg-surface text-muted-foreground"><Layers className="size-4" /></span>
         <div className="min-w-0 flex-1">
           <div className="truncate font-medium">{z.name}</div>
@@ -155,11 +164,11 @@ const ZoneBlock = ({ z, inside, edit, open }: { z: Zone; inside: number; edit: b
           <IconBtn label={`Изменить: ${z.name}`} onClick={() => open({ kind: "zone", id: z.id })}><Pencil /></IconBtn>
           <IconBtn label={`Удалить: ${z.name}`} onClick={() => open({ del: "zone", id: z.id })}><Trash2 /></IconBtn>
         </div>}
-      </div>
+      </motion.div>
       {cps.length > 0
-        ? <ul className="divide-y divide-border border-t border-border">{cps.map((c) => <CheckpointRow key={c.id} c={c} edit={edit} onEdit={() => open({ kind: "checkpoint", id: c.id })} onDelete={() => open({ del: "checkpoint", id: c.id })} />)}</ul>
+        ? <ul className="divide-y divide-border border-t border-border"><AnimatePresence initial={false}>{cps.map((c) => <CheckpointRow key={c.id} c={c} edit={edit} onEdit={() => open({ kind: "checkpoint", id: c.id })} onDelete={() => open({ del: "checkpoint", id: c.id })} />)}</AnimatePresence></ul>
         : <p className="border-t border-border px-4 py-2.5 text-xs text-muted-foreground">Проходных нет — в зону пока не войти через терминал.{edit && <> <button type="button" className="font-medium text-foreground underline-offset-4 hover:underline" onClick={() => open({ kind: "checkpoint", parentId: z.id })}>Добавить</button></>}</p>}
-    </div>
+    </motion.div>
   );
 };
 
@@ -212,12 +221,12 @@ export const ObjectsPage = () => {
           <Button onClick={() => setDialog({ kind: "site" })}><Plus />Объект</Button>
         </> : undefined} />
       <motion.div variants={stagger()} initial="hidden" animate="show" className="flex flex-col gap-4">
-        <motion.div variants={fadeUp} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <motion.div variants={stagger()} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {tiles.map(({ label, n, icon: Icon }) => (
-            <div key={label} className="flex flex-col gap-1 rounded-lg border border-border bg-card px-4 py-3">
-              <span className="flex items-center gap-2 font-display text-2xl font-semibold tabular-nums"><Icon className="size-4 text-subtle-foreground" />{n}</span>
+            <motion.div key={label} variants={popIn} className="flex flex-col gap-1 rounded-xl bg-card px-4 py-3 shadow-card">
+              <span className="flex items-center gap-2 font-display text-2xl font-semibold tabular-nums"><Icon className="size-4 text-subtle-foreground" /><AnimatedNumber value={n} /></span>
               <span className="text-sm leading-tight text-muted-foreground">{label}</span>
-            </div>
+            </motion.div>
           ))}
         </motion.div>
         {!edit && (
@@ -231,8 +240,8 @@ export const ObjectsPage = () => {
         {groups.length === 0 ? (
           <motion.div variants={fadeUp}><Card><EmptyState icon={<Building2 />} title={q ? "Ничего не нашли" : "Объектов пока нет"} text={q ? "Измените запрос" : "Создайте объект, затем зоны и проходные в нём"}
             action={edit && !q ? <Button onClick={() => setDialog({ kind: "site" })}><Plus />Объект</Button> : undefined} /></Card></motion.div>
-        ) : groups.map(({ site, zones, total }) => (
-          <motion.div key={site.id || "none"} variants={fadeUp}><Card>
+        ) : <AnimatePresence initial={false}>{groups.map(({ site, zones, total }) => (
+          <motion.div key={site.id || "none"} layout variants={fadeUp} exit="exit" transition={{ layout: spring.soft }}><Card>
             <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-4 sm:px-6">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground"><Building2 className="size-5" /></span>
               <div className="min-w-0 flex-1">
@@ -250,11 +259,11 @@ export const ObjectsPage = () => {
               {!site.id && <Status tone="warning">зоны без объекта — перенесите их</Status>}
             </div>
             <div className={cn("flex flex-col gap-3 p-4 sm:p-6", !zones.length && "py-5")}>
-              {zones.length ? zones.map((z) => <ZoneBlock key={z.id} z={z} inside={inside.get(z.id) ?? 0} edit={edit} open={open} />)
+              {zones.length ? <AnimatePresence initial={false}>{zones.map((z) => <ZoneBlock key={z.id} z={z} inside={inside.get(z.id) ?? 0} edit={edit} open={open} />)}</AnimatePresence>
                 : <p className="text-sm text-muted-foreground">Зон нет.{edit && site.id && <> <button type="button" className="font-medium text-foreground underline-offset-4 hover:underline" onClick={() => setDialog({ kind: "zone", parentId: site.id })}>Добавить зону</button></>}</p>}
             </div>
           </Card></motion.div>
-        ))}
+        ))}</AnimatePresence>}
         <motion.p variants={fadeUp} className="text-pretty text-sm text-muted-foreground">
           Допуски людей в зоны — в карточке сотрудника, терминалы на проходных — в разделе{" "}
           <Link to={routes.adminTerminals} className="font-medium text-foreground underline-offset-4 hover:underline">Терминалы</Link>. Все изменения пишутся в журнал раздела «Доступ».

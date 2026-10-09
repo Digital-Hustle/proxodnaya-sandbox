@@ -49,16 +49,16 @@ export const ServicePanel = ({ open, onClose, kioskId, kiosk, simOffline, setSim
         <div className="flex flex-col gap-5">
           <div className="flex flex-col divide-y divide-border rounded-md border border-border px-3">
             <Row k="Идентификатор" v={<span className="font-mono text-xs">{kioskId}</span>} />
-            <Row k="Статус" v={kiosk?.pairedAt ? <Status tone="success" dot>привязан</Status> : <Status tone="warning" dot>ждёт привязки · {kiosk?.pairCode}</Status>} />
+            <Row k="Статус" v={kiosk?.pairedAt ? <Status tone="success">привязан</Status> : <Status tone="warning">ждёт привязки · {kiosk?.pairCode}</Status>} />
             {kiosk?.pairedAt && <Row k="Название" v={kiosk.name} />}
             {kiosk?.pairedAt && <Row k="Проходная" v={cp?.name ?? "—"} />}
             <Row k="Логика работы" v={MODE_LABEL[terminalModeOf(db, kiosk)]} />
             <Row k="Без связи" v={OFFLINE_LABEL[offlinePolicyOf(db, kiosk)]} />
             <Row k="Снимок допусков" v={off.snapshot ? `${agoRu(off.snapshot.at)} · ${off.snapshot.workers.length} чел.` : "ещё не скачан"} />
             <Row k="Ждут отправки" v={off.queue.length ? `${off.queue.length} прох.` : "нет"} />
-            <Row k="Коды" v={code.factory ? <Status tone="warning" dot>заводские</Status> : "заданы в админке"} />
+            <Row k="Коды" v={code.factory ? <Status tone="warning">заводские</Status> : "заданы в админке"} />
             <Row k="Журнал терминала" v={off.head.seq ? `${off.head.seq} зап. · подписан` : "пуст"} />
-            {kiosk?.syncError && <Row k="Отправка" v={<Status tone="danger" dot>{kiosk.syncError.message}</Status>} />}
+            {kiosk?.syncError && <Row k="Отправка" v={<Status tone="danger">{kiosk.syncError.message}</Status>} />}
             {kiosk?.pairedAt && <Row k="Привязан" v={agoRu(kiosk.pairedAt)} />}
           </div>
           <p className="text-xs text-muted-foreground">Проходная и логика работы меняются только в админке: на самом терминале их нельзя подменить.</p>

@@ -93,7 +93,7 @@ export const KioskTerminal = ({ checkpointId, mode = "QR_FACE", demoOpen, setDem
 
   return (
     <div className="relative isolate flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl">
-      <motion.video ref={cam.videoRef} playsInline muted className="absolute inset-0 size-full -scale-x-100 object-cover" initial={false} animate={{ opacity: showVideo ? 1 : 0, filter: showVideo ? "blur(0px)" : "blur(16px)" }} transition={showVideo ? camIn : camOut} />
+      <motion.video ref={cam.bindVideo} playsInline muted className="absolute inset-0 size-full -scale-x-100 object-cover" initial={false} animate={{ opacity: showVideo ? 1 : 0, filter: showVideo ? "blur(0px)" : "blur(16px)" }} transition={showVideo ? camIn : camOut} />
       <motion.div aria-hidden className="absolute inset-0 bg-linear-to-t from-black/70 via-black/10 to-black/30" initial={false} animate={{ opacity: showVideo ? 1 : 0 }} transition={showVideo ? camIn : camOut} />
 
       <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-6 overflow-y-auto p-5 text-center sm:gap-8 sm:p-8">
@@ -105,7 +105,7 @@ export const KioskTerminal = ({ checkpointId, mode = "QR_FACE", demoOpen, setDem
                 <ScanMark>{!cameraOn && <QrCode className="size-16 sm:size-20" strokeWidth={1.5} />}</ScanMark>
               </div>
               <div className="relative flex flex-col items-center gap-2">
-                {offline && <span className="rounded-full bg-warning/20 px-3 py-1 text-sm font-medium text-warning">Без связи · проверка на терминале · ещё {durationRu(offline.leftMs)}</span>}
+                {offline && <span className="rounded-2xs bg-warning/20 px-2.5 py-1 text-sm font-medium text-warning">Без связи · проверка на терминале · ещё {durationRu(offline.leftMs)}</span>}
                 <h1 className="text-balance font-display text-3xl font-semibold tracking-display text-white sm:text-4xl lg:text-5xl">{faceFirst ? "Посмотрите в камеру" : "Покажите QR-пропуск"}</h1>
                 <p className="text-balance text-base text-white/70 sm:text-lg">{faceFirst && cameraOn ? "Или покажите QR-пропуск. Вход или выход определится автоматически" : cameraOn ? (moving ? "Вход или выход определится автоматически" : "Подойдите к камере и поднесите экран телефона") : cam.state === "denied" ? "Доступ к камере запрещён. Используйте демо-пропуск" : cam.state === "unavailable" ? "Камера не найдена. Используйте демо-пропуск" : "Камера отключена. Используйте демо-пропуск"}</p>
               </div>

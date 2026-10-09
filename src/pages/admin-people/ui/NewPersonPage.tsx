@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router";
 import { AnimatePresence, motion } from "motion/react";
-import { Check, ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { api, useDb, type Worker } from "@/shared/api";
-import { Button, Card, Field, Input, Select, toast, PageHeader } from "@/shared/ui";
+import { Button, Card, Chip, Field, Input, Select, toast, PageHeader } from "@/shared/ui";
 import { WeekPlanEditor, weekPlan, planDays, planValid, type WeekPlan } from "@/features/plan-week";
 import { cn, todayKey, hhmm } from "@/shared/lib";
 import { routes } from "@/shared/const/router";
-import { spring, tween, press } from "@/shared/config/motion";
+import { spring, tween } from "@/shared/config/motion";
 import { FaceReferenceCapture, type FaceCheckState } from "@/features/capture-photo";
 import { useSession } from "@/entities/session";
 import { InviteCard } from "./InviteCard";
@@ -84,13 +84,7 @@ export const NewPersonPage = () => {
                     <div className="flex flex-wrap gap-2">
                       {db.zones.map((z) => {
                         const on = zoneIds.includes(z.id);
-                        return (
-                          <motion.button key={z.id} type="button" {...press} aria-pressed={on} onClick={() => setZoneIds((v) => (on ? v.filter((x) => x !== z.id) : [...v, z.id]))}
-                            className={cn("flex h-control-sm items-center gap-1.5 rounded-full border px-3.5 text-sm font-medium transition-colors duration-fast", on ? "border-success-border bg-success-soft text-success-soft-foreground" : "border-border-strong text-muted-foreground hover:text-foreground")}>
-                            <AnimatePresence initial={false}>{on && <motion.span initial={{ width: 0, opacity: 0 }} animate={{ width: "auto", opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={spring.snappy} className="flex overflow-hidden"><Check className="size-4" /></motion.span>}</AnimatePresence>
-                            {z.name}
-                          </motion.button>
-                        );
+                        return <Chip key={z.id} pressed={on} onClick={() => setZoneIds((v) => (on ? v.filter((x) => x !== z.id) : [...v, z.id]))}>{z.name}</Chip>;
                       })}
                     </div>
                     {zoneIds.length === 0 && <p className="text-xs text-danger">Выберите хотя бы одну зону</p>}

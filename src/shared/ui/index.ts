@@ -28,3 +28,6 @@ export * from "./LoadMore";
 export { InstallButton } from "./InstallButton";
 export { CountdownBar } from "./CountdownBar";
 export { CodeInput, type CodeState } from "./CodeInput";
+export { Chip } from "./Chip";
+export * from "./DrawnCheck";
+export * from "./AutoHeight";

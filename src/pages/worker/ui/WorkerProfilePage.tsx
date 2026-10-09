@@ -11,7 +11,7 @@ import type { WorkerCtx } from "@/widgets/worker-shell";
 import { forgetWorkerCard, useWorkerCard } from "../lib/card";
 
 const dateLong = (v: string | number) => new Date(typeof v === "string" ? `${v}T12:00:00` : v).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
-const FACE_LABEL = { NONE: <Status tone="warning" dot>не добавлено</Status>, PENDING: <Status tone="info" dot>на проверке</Status>, REJECTED: <Status tone="danger" dot>переснять</Status>, ACTIVE: <Status tone="success" dot>подтверждено</Status> } as const;
+const FACE_LABEL = { NONE: <Status tone="warning">не добавлено</Status>, PENDING: <Status tone="info">на проверке</Status>, REJECTED: <Status tone="danger">переснять</Status>, ACTIVE: <Status tone="success">подтверждено</Status> } as const;
 
 const Row = ({ icon, k, v }: { icon: React.ReactNode; k: string; v: React.ReactNode }) => (
   <div className="flex min-w-0 items-center gap-3 px-4 py-3 sm:px-6">
@@ -60,14 +60,14 @@ export const WorkerProfilePage = () => {
               <div className="text-xs text-muted-foreground">Допуск к работам до</div>
               <div className="font-display text-xl font-semibold tabular-nums tracking-display">{dateLong(w.permitUntil)}</div>
             </div>
-            {live?.status === "blocked" ? <Status tone="danger" dot>Заблокирован</Status> : <Status tone="success" dot>Активен</Status>}
+            {live?.status === "blocked" ? <Status tone="danger">Заблокирован</Status> : <Status tone="success">Активен</Status>}
           </Card>
         </motion.div>
 
         {/* ADR-044: один код на все объекты — терминал каждого объекта сам проверяет допуск к своим зонам */}
         <motion.div variants={fadeUp}>
           <Card>
-            <CardHeader><CardTitle>Мои объекты</CardTitle><Status tone="success" dot>{sites.length}</Status></CardHeader>
+            <CardHeader><CardTitle>Мои объекты</CardTitle><Status tone="success">{sites.length}</Status></CardHeader>
             <ul className="flex flex-col gap-1 p-2 sm:p-3">
               {sites.map(({ site, zones }) => {
                 const on = here?.id === site.id;
@@ -78,7 +78,7 @@ export const WorkerProfilePage = () => {
                       <div className="truncate text-sm font-medium">{site.name}</div>
                       <div className="truncate text-xs text-muted-foreground">{zones.map((z) => z.name).join(" · ")}{site.address ? ` · ${site.address}` : ""}</div>
                     </div>
-                    {on && <Status tone="success" dot>Вы здесь</Status>}
+                    {on && <Status tone="success">Вы здесь</Status>}
                   </li>
                 );
               })}

@@ -65,8 +65,8 @@ export const WorkerPassPage = () => {
             <div className="truncate font-semibold">Пропуск на объект</div>
             <div className="flex items-center gap-0.5 text-sm text-white/80 transition-colors duration-fast group-hover:text-white"><span className="truncate">{siteLabel}</span><ChevronRight className="size-4 shrink-0" /></div>
           </Link>
-          <span className="inline-flex max-w-2/5 shrink-0 items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium backdrop-blur-md">
-            <span className={cn("size-1.5 shrink-0 rounded-full", pres ? "bg-white" : "bg-white/50")} /><span className="truncate">{pres ? (zoneName ?? "На объекте") : "Вне объекта"}</span>
+          <span className={cn("inline-flex max-w-2/5 shrink-0 items-center rounded-2xs px-2 py-1 text-xs font-medium", pres ? "bg-white text-brand" : "bg-white/15 text-white/85")}>
+            <span className="truncate">{pres ? (zoneName ?? "На объекте") : "Вне объекта"}</span>
           </span>
         </header>
         <div className="mt-4"><PassQr tone="brand" /></div>

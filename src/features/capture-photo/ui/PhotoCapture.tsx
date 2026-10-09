@@ -26,7 +26,7 @@ export const PhotoCapture = ({ value, onChange }: { value?: string; onChange: (d
   return (
     <div className="flex flex-col items-center gap-4">
       <div className="relative aspect-square w-full max-w-64 overflow-hidden rounded-xl bg-surface">
-        <video ref={cam.videoRef} playsInline muted className="size-full -scale-x-100 object-cover" />
+        <video ref={cam.bindVideo} playsInline muted className="size-full -scale-x-100 object-cover" />
         <AnimatePresence>
           {value && <motion.img key="shot" src={value} variants={popIn} initial="hidden" animate="show" exit="exit" className="absolute inset-0 size-full object-cover" alt="Фото сотрудника" />}
         </AnimatePresence>

@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 import { Link2, MonitorSmartphone, Pencil, Unlink, BookOpen, ScanLine, KeyRound, ShieldCheck, Wrench } from "lucide-react";
 import { api, useDb, KIOSK_ONLINE_MS, terminalModeOf, CODE_ROLES, type Kiosk, type TerminalMode, type OfflinePolicy, type TerminalCodeKind } from "@/shared/api";
 import { useSession } from "@/entities/session";
-import { Button, Card, CardHeader, CardTitle, Dialog, EmptyState, Field, Input, PageHeader, Select, Status, toast } from "@/shared/ui";
+import { Button, Card, CardHeader, CardTitle, Dialog, useDialogState, EmptyState, Field, Input, PageHeader, Select, Status, toast } from "@/shared/ui";
 import { useNow } from "@/shared/hooks";
 import { agoRu, weakTerminalCode, CODE_MIN, CODE_MAX } from "@/shared/lib";
 import { routes } from "@/shared/const/router";
@@ -50,7 +50,8 @@ const GlobalNote = () => {
   );
 };
 
-const EditDialog = ({ kiosk, onClose }: { kiosk: Kiosk; onClose: () => void }) => {
+const EditDialog = ({ kiosk, onClose: onClosed }: { kiosk: Kiosk; onClose: () => void }) => {
+  const { open, close: onClose } = useDialogState();
   const db = useDb();
   const modes = useModeOptions();
   const [name, setName] = useState(kiosk.name ?? "");
@@ -61,7 +62,7 @@ const EditDialog = ({ kiosk, onClose }: { kiosk: Kiosk; onClose: () => void }) =
   const [off, setOff] = useState<OffOpt>(kiosk.offlinePolicy ?? "DEFAULT");
   const save = async () => { await api.updateKiosk(kiosk.id, { name: name.trim() || "Терминал", checkpointId: cp, ...(per ? { mode: mode === "DEFAULT" ? undefined : mode, offlinePolicy: off === "DEFAULT" ? undefined : off } : {}) }); toast.success("Терминал обновлён"); onClose(); };
   return (
-    <Dialog open onClose={onClose} title="Настройка терминала" description="Изменения применяются на киоске сразу"
+    <Dialog open={open} onClose={onClose} onClosed={onClosed} title="Настройка терминала" description="Изменения применяются на киоске сразу"
       footer={<><Button variant="quiet" onClick={onClose}>Отмена</Button><Button onClick={save}>Сохранить</Button></>}>
       <div className="flex flex-col gap-5">
         <Field label="Название"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
@@ -80,7 +81,8 @@ const CODES: { kind: TerminalCodeKind; title: string; text: string; icon: typeof
   { kind: "guard", title: "Код охранника", text: "Подтверждает ручной пропуск, когда у терминала нет связи. Проверяется на самом киоске.", icon: ShieldCheck },
 ];
 
-const CodeDialog = ({ kind, onClose }: { kind: TerminalCodeKind; onClose: () => void }) => {
+const CodeDialog = ({ kind, onClose: onClosed }: { kind: TerminalCodeKind; onClose: () => void }) => {
+  const { open, close: onClose } = useDialogState();
   const userId = useSession((x) => x.userId);
   const [a, setA] = useState("");
   const [b, setB] = useState("");
@@ -96,7 +98,7 @@ const CodeDialog = ({ kind, onClose }: { kind: TerminalCodeKind; onClose: () => 
   };
   const digits = (v: string) => v.replace(/\D/g, "").slice(0, CODE_MAX);
   return (
-    <Dialog open onClose={onClose} title={kind === "service" ? "Новый сервисный код" : "Новый код охранника"}
+    <Dialog open={open} onClose={onClose} onClosed={onClosed} title={kind === "service" ? "Новый сервисный код" : "Новый код охранника"}
       description="Код один для всех терминалов. Сообщите его только тем, кому он нужен: в журнале доступа останется, кто и когда его сменил"
       footer={<><Button variant="quiet" onClick={onClose}>Отмена</Button><Button disabled={!ok || busy} onClick={save}><KeyRound />Сменить код</Button></>}>
       <form className="flex flex-col gap-5" onSubmit={(e) => { e.preventDefault(); if (ok) save(); }}>
@@ -132,7 +134,7 @@ const CodesCard = () => {
             <li key={kind} className="flex items-start gap-3 px-4 py-4 sm:items-center sm:px-6">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-surface text-muted-foreground"><Icon className="size-5" /></span>
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2 font-medium">{title}{rec ? <Status tone="success" dot>задан</Status> : <Status tone="warning" dot>заводской</Status>}</div>
+                <div className="flex flex-wrap items-center gap-2 font-medium">{title}{rec ? <Status tone="success">задан</Status> : <Status tone="warning">заводской</Status>}</div>
                 <p className="text-pretty text-sm text-muted-foreground">{text}</p>
                 <p className="mt-1 text-xs text-subtle-foreground">{rec ? `Сменил ${nameOf(rec.by)} ${agoRu(rec.updatedAt, now)} · ${rec.digits} цифр` : "Действует заводской код — смените его до запуска объекта"}</p>
                 <div className="mt-3 sm:hidden">{action}</div>
@@ -221,7 +223,7 @@ export const TerminalsPage = () => {
                       <div className="truncate font-medium">{k.name}</div>
                       <div className="truncate text-sm text-muted-foreground">{db.checkpoints.find((c) => c.id === k.checkpointId)?.name ?? "—"} · {MODE_LABEL[terminalModeOf(db, k)]}{per && (k.mode || k.offlinePolicy) ? " · своя логика" : " · общая логика"}</div>
                     </div>
-                    {online ? <Status tone="success" dot>на связи</Status> : <Status tone="neutral" dot>{`был ${agoRu(k.lastSeen)}`}</Status>}
+                    {online ? <Status tone="success">на связи</Status> : <Status tone="neutral">{`был ${agoRu(k.lastSeen)}`}</Status>}
                     <div className="flex gap-1">
                       <Button size="icon-sm" variant="quiet" aria-label="Настроить" onClick={() => setEdit(k)}><Pencil /></Button>
                       <Button size="icon-sm" variant="quiet" aria-label="Отвязать" onClick={() => api.unpairKiosk(k.id).then(() => toast.info("Терминал отвязан и больше не пропускает"))}><Unlink /></Button>

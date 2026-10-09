@@ -8,6 +8,16 @@ export const useCamera = (facing: "user" | "environment" = "user") => {
   const streamRef = useRef<MediaStream | null>(null);
   const [state, setState] = useState<CameraState>("idle");
 
+  /**
+   * Ref для <video ref={cam.bindVideo}>: если камера включилась раньше, чем смонтировался <video>
+   * (экран ещё доигрывает выход предыдущего шага), поток подключается при монтировании.
+   */
+  const bindVideo = useCallback((el: HTMLVideoElement | null) => {
+    videoRef.current = el;
+    const stream = streamRef.current;
+    if (el && stream && el.srcObject !== stream) { el.srcObject = stream; el.play().catch(() => undefined); }
+  }, []);
+
   const stop = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
@@ -40,5 +50,5 @@ export const useCamera = (facing: "user" | "environment" = "user") => {
     return c.toDataURL("image/jpeg", 0.8);
   }, []);
 
-  return { videoRef, state, start, stop, snapshot };
+  return { videoRef, bindVideo, state, start, stop, snapshot };
 };
