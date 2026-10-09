@@ -1,12 +1,13 @@
+// Экспорт реального HTTP-клиента (замена моков).
+// Используйте `import * as api from "@/shared/api"` — вызовы идут на реальный бэкенд.
+// Моки остались в `./mock/` для справки и локального демо (import * as api from "@/shared/api/mock/server").
 export * from "./types";
-export { useDb, getDb } from "./mock/store";
 export { REASONS, SYSTEM_CODES } from "./mock/reasons";
 export { DEMO_INVITES } from "./mock/seed";
-export * from "./mock/derived";
-export * as api from "./mock/server";
-export type { WeekDayPlan, ScanResult, WorkerDraft, Page, WorkerRow, WorkerFilter, WorkerQuery, AttemptQuery, ShiftRow, ShiftFilter } from "./mock/server";
-export { PAGE_MAX, SCALE_WORKERS, isScaled } from "./mock/server";
-export { CODE_ROLES, LOGIN_CODE_LEN, LOGIN_TTL_MS, LOGIN_RESEND_MS, sessionUser, maskEmail } from "./mock/server";
-export { terminalModeOf, offlinePolicyOf, KIOSK_ONLINE_MS, FACE_FIRST_MARGIN } from "./mock/server";
+// Реальный API-клиент
+export * as api from "./client";
+// SSE-хелперы
+export { getStreamTicket, openSituationStream, openWorkerStream } from "./client";
+// Помощник пока на моках (скоро появится адаптер)
 export * as assistant from "./mock/assistant";
-export type { AssistantAnswer, AssistantTable, LlmConfig, AssistantEvent, AskOptions } from "./mock/assistant";
+export type { AssistantAnswer, AssistantTable, LlmConfig } from "./mock/assistant";
